@@ -18,6 +18,10 @@ public class Label {
     Graphics2D graphics;
     private int xPos;
     private int yPos;
+    private int textWrapType = SINGLE_LINE;
+    private boolean checkTextWrapping(int wrap) { // wrong: have to check for bitwise ors
+        return (wrap & (wrap - 1)) != 0;
+    }
     public Label(Graphics2D imageGraphics, String labelText, int fontSize, int xPosition, int yPosition) {
         if (imageGraphics == null || labelText == null) {
             throw new NullPointerException();
@@ -67,5 +71,20 @@ public class Label {
         xPos = xPosition;
         yPos = yPosition;
         rotation = rotationInRadians;
+    }
+    public Label(Graphics2D imageGraphics, String labelText, Font font, Color color, int xPosition, int yPosition,
+                 double rotationInRadians, int textWrappingType) {
+        if (imageGraphics == null || labelText == null || font == null || color == null) {
+            throw new NullPointerException();
+        }
+        this.color = color;
+        this.font = font;
+        rotation = 0d;
+        graphics = imageGraphics;
+        text = labelText;
+        xPos = xPosition;
+        yPos = yPosition;
+        rotation = rotationInRadians;
+        textWrapType = checkTextWrapping(textWrappingType) ? textWrappingType : SINGLE_LINE;
     }
 }
