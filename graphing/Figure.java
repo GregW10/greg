@@ -8,6 +8,7 @@ import javax.imageio.ImageIO;
 import java.util.ArrayList;
 import java.io.File;
 import java.io.IOException;
+import java.awt.Desktop; // for opening the file with openFigure() - throws Exception or fails if fig. not generated
 import greg.misc.*;
 
 public abstract class Figure {
