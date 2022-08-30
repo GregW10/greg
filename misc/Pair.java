@@ -14,7 +14,9 @@ public class Pair <K, V> {
     }
     @Override
     public String toString() {
-        return "First: " + first + ", Second: " + second;
+        return "Pair(" + (first instanceof String || first instanceof StringBuilder? "\"" + first + "\"" : first) +
+                ", " + (second instanceof String || second instanceof StringBuilder ? "\"" + second + "\"" : second) +
+                ")";
     }
     @Override
     public boolean equals(Object other) {
