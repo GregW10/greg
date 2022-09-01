@@ -12,6 +12,10 @@ public class Pair <K, V> {
     public Pair(K first_element, V second_element) {
         this.first = first_element; this.second = second_element;
     }
+    public Pair(Pair<? extends K, ? extends V> p) {
+        this.first = p.first;
+        this.second = p.second;
+    }
     @Override
     public String toString() {
         return "Pair(" + (first instanceof String || first instanceof StringBuilder? "\"" + first + "\"" : first) +

@@ -16,6 +16,21 @@ public class Trio<K, V, U> extends Pair<K, V> {
         super(first_element, second_element);
         third = third_element;
     }
+    public Trio(Trio<? extends K, ? extends V, ? extends U> t) {
+        this.first = t.first;
+        this.second = t.second;
+        this.third = t.third;
+    }
+    public Trio(K first_element, Pair<? extends V, ? extends U> p) {
+        this.first = first_element;
+        this.second = p.first;
+        this.third = p.second;
+    }
+    public Trio(Pair<? extends K, ? extends V> p, U third_element) {
+        this.first = p.first;
+        this.second = p.second;
+        this.third = third_element;
+    }
     @Override
     public String toString() {
         return super.toString() + "\b, " + (third instanceof String || third instanceof StringBuilder ? "\"" + third +
