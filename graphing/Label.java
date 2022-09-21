@@ -13,7 +13,7 @@ import javax.imageio.ImageIO;
 import java.io.IOException;
 import java.awt.Desktop;
 
-public final class Label extends TextBounds implements Cloneable {
+public final class Label extends TextBounds {
     private Color textColor = Color.black;
     private Color backgroundColor = null;
     private double rotation = 0d; // in radians
@@ -36,6 +36,12 @@ public final class Label extends TextBounds implements Cloneable {
         }
         return new Point((int) (p.x*Math.cos(radians) - p.y*Math.sin(radians)),
                          (int) (p.y*Math.cos(radians) + p.x*Math.sin(radians)));
+    }
+    public Label(Label other) throws CharacterDoesNotFitException {
+        super(other);
+        textColor = new Color(other.textColor.getRGB());
+        backgroundColor = new Color(other.backgroundColor.getRGB());
+        rotation = other.rotation;
     }
     public Label(Figure fig, String text, int xPos, int yPos, int width, int justification) throws
             CharacterDoesNotFitException {

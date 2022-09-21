@@ -78,7 +78,20 @@ public class TextBounds {
         this(fig.fullImageGraphics, text, xPosition, yPosition, width, textJustification);
     }
     public TextBounds(TextBounds other) throws CharacterDoesNotFitException {
-        this(other.g, other.txt, other.f, other.rect.x, other.rect.y, other.rect.width, other.justification);
+        g = other.g; // only choice
+        fm = g.getFontMetrics();
+        f = new Font(other.f.getFontName(), other.f.getStyle(), other.f.getSize());
+        txt = other.txt; // Strings are immutable
+        rect.x = other.rect.x;
+        rect.y = other.rect.y;
+        rect.width = other.rect.width;
+        words.addAll(other.words);
+        lines.addAll(other.lines);
+        fontHeight = fm.getHeight();
+        fontAscent = fm.getAscent();
+        justification = other.justification;
+        empty = other.empty;
+
     } // below method forces TextBounds obj. to recalculate everything, in case Graphics2D obj. has changed, or a new
     public boolean recalculate(Font newFont) throws CharacterDoesNotFitException { // Font is wished to be used
         if (empty) {
