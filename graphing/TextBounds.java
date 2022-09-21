@@ -16,31 +16,33 @@ import java.awt.Point;
 import java.awt.Desktop;
 
 public class TextBounds {
-    private final Graphics2D g;
-    private final FontMetrics fm;
-    private final Font f;
-    private final String txt;
-    private final Rectangle rect = new Rectangle();
-    private final ArrayList<String> words = new ArrayList<>();
-    private final ArrayList<Trio<String, Rectangle, Point>> lines = new ArrayList<>();
-    private final int fontHeight;
-    private final int fontAscent;
+    protected Graphics2D g;
+    protected FontMetrics fm;
+    protected Font f;
+    protected final String txt;
+    protected final Rectangle rect = new Rectangle();
+    protected final ArrayList<String> words = new ArrayList<>();
+    protected final ArrayList<Trio<String, Rectangle, Point>> lines = new ArrayList<>();
+    protected int fontHeight;
+    protected int fontAscent;
     public static final int LEFT_JUSTIFY = 1;
     public static final int CENTER_JUSTIFY = 2;
     public static final int RIGHT_JUSTIFY = 4;
     private final int justification;
     private final boolean empty;
-    TextBounds(Graphics2D graphics, String text, int xPosition, int yPosition, int width, int textJustification) throws
-            CharacterDoesNotFitException {
+    public TextBounds(Graphics2D graphics, String text, Font font, int xPosition, int yPosition, int width,
+               int textJustification) throws CharacterDoesNotFitException { // creates object with the specified font
         if (graphics == null || text == null) {
             throw new NullPointerException();
         }
         if ((textJustification & textJustification - 1) != 0 && textJustification >> 3 != 0) {
             textJustification = CENTER_JUSTIFY;
         }
+        Font originalFont = graphics.getFont();
+        graphics.setFont(font);
         g = graphics;
         fm = graphics.getFontMetrics();
-        f = fm.getFont();
+        f = font;
         txt = text;
         rect.width = width;
         fontHeight = fm.getHeight();
@@ -57,9 +59,46 @@ public class TextBounds {
         createLines();
         rect.height = fontHeight * lines.size();
         empty = false;
+        graphics.setFont(originalFont);
     }
-    TextBounds(Graphics2D graphics, String text, int width, int textJustification) throws CharacterDoesNotFitException {
+    public TextBounds(Graphics2D graphics, String text, int xPosition, int yPosition, int width,
+               int textJustification) throws CharacterDoesNotFitException { // creates object with graphics' font
+        this(graphics, text, graphics.getFont(), xPosition, yPosition, width, textJustification);
+    }
+    public TextBounds(Graphics2D graphics, String text, int width, int textJustification)
+            throws CharacterDoesNotFitException {
         this(graphics, text, 0, 0, width, textJustification); // will throw NPE if graphics is null
+    }
+    public TextBounds(Figure fig, String text, Font font, int xPosition, int yPosition, int width,
+               int textJustification) throws CharacterDoesNotFitException {
+        this(fig.fullImageGraphics, text, font, xPosition, yPosition, width, textJustification);
+    }
+    public TextBounds(Figure fig, String text, int xPosition, int yPosition, int width, int textJustification) throws
+            CharacterDoesNotFitException {
+        this(fig.fullImageGraphics, text, xPosition, yPosition, width, textJustification);
+    }
+    public TextBounds(TextBounds other) throws CharacterDoesNotFitException {
+        this(other.g, other.txt, other.f, other.rect.x, other.rect.y, other.rect.width, other.justification);
+    } // below method forces TextBounds obj. to recalculate everything, in case Graphics2D obj. has changed, or a new
+    public boolean recalculate(Font newFont) throws CharacterDoesNotFitException { // Font is wished to be used
+        if (empty) {
+            return false;
+        }
+        Font originalFont = g.getFont();
+        if (newFont != null) {
+            g.setFont(newFont);
+            f = newFont;
+        }
+        fm = g.getFontMetrics();
+        fontHeight = fm.getHeight();
+        fontAscent = fm.getAscent();
+        createWords();
+        createLines();
+        rect.height = fontHeight*lines.size();
+        if (newFont != null) {
+            g.setFont(originalFont);
+        }
+        return true;
     }
     public final int getNumberOfLines() {
         return lines.size();
@@ -80,6 +119,7 @@ public class TextBounds {
         return justification;
     }
     private void createWords() {
+        words.clear();
         if (txt.indexOf(' ') == -1) {
             words.add(txt);
         }
@@ -129,6 +169,7 @@ public class TextBounds {
         lines.add(new Trio<>(characters.toString(), getProperRectangle(characters.toString())));
     }
     private void createLines() throws CharacterDoesNotFitException {
+        lines.clear();
         StringBuilder line = new StringBuilder();
         int w = 0;
         int width;
@@ -249,15 +290,12 @@ public class TextBounds {
         TextBounds tb = new TextBounds(g, test, xPos, yPos - fm.getAscent(), testWidth, TextBounds.RIGHT_JUSTIFY);
         System.out.println("Words: " + tb.getWords());
         System.out.println("Lines: " + tb.getLines());
-        int offset = yPos - fm.getAscent();
-        int factor = 0;
         for (final Trio<String, Rectangle, Point> line : tb.getLines()) {
             g.setPaint(Color.red);
             g.fill(line.second);
             g.setPaint(Color.black);
             g.drawString(line.first, line.third.x, line.third.y);
             System.out.println(line.first);
-            ++factor;
         }
         g.setPaint(Color.GREEN);
         g.draw(tb.getBounds());
