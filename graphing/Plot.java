@@ -79,6 +79,7 @@ public class Plot <T extends Number> extends Figure {
     private void fill_background() {
         if (!created) {
             image = new BufferedImage(width, height, super.IMAGE_TYPE);
+            // image = super.fullImage.getSubimage((super.fullWidth-width)/2, (super.fullHeight-height)/2, width, height);
             image_graphics = image.createGraphics();
             created = true;
         }
@@ -514,6 +515,8 @@ public class Plot <T extends Number> extends Figure {
     }
 
     private void flipImage() {
+        // image_graphics.scale(1, -1);
+        // image_graphics.translate(0, -height);
         AffineTransform at = AffineTransform.getScaleInstance(1, -1);
         at.translate(0, -height);
         image = (new AffineTransformOp(at, AffineTransformOp.TYPE_NEAREST_NEIGHBOR)).filter(image, null);
@@ -1020,12 +1023,10 @@ public class Plot <T extends Number> extends Figure {
         }
         return true;
     }
-
     public final void setXTickLabelsExponentNotation(boolean exponent) {
         xTickLabelExpNotation = exponent;
         xExpSet = true;
     }
-
     public final void setYTickLabelsExponentNotation(boolean exponent) {
         yTickLabelExpNotation = exponent;
         yExpSet = true;
@@ -1042,7 +1043,6 @@ public class Plot <T extends Number> extends Figure {
         secondaryAxes = true;
         return true;
     }
-
     public final boolean addSecondaryAxes(int thickness_in_pixels, Color color) {
         if (color.equals(super.figureBackground)) {
             return false;
@@ -1050,11 +1050,9 @@ public class Plot <T extends Number> extends Figure {
         axes_colour2 = color;
         return addSecondaryAxes(thickness_in_pixels);
     }
-
     public final void removeSecondaryAxes() {
         secondaryAxes = false;
     }
-
     public boolean generatePlot(boolean freePlot) {
         if (plots.isEmpty()) {
             return false;
@@ -1074,16 +1072,14 @@ public class Plot <T extends Number> extends Figure {
         generated = true;
         return true;
     }
-
     public final boolean writeImage(boolean free_image) throws IOException {
         if (!generated) {
             return false;
         }
-        super.writeFigure(free_image);
         drawPlotToFigure(image != null && free_image);
+        super.writeFigure(free_image);
         return true;
     }
-
     public final boolean generatePlotAndWrite(boolean free_image) throws IOException {
         if (!generatePlot(image != null && free_image)) {
             return false;
