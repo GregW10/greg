@@ -72,8 +72,7 @@ public class Plot <T extends Number> extends Figure {
     private boolean xExpSet = false;
     private boolean yTickLabelExpNotation;
     private boolean yExpSet = false;
-    private final ArrayList<Trio<Color, String, Pair<Integer, Integer>>> annotationsBefore = new ArrayList<>();
-    private final ArrayList<Trio<Color, String, Pair<Integer, Integer>>> annotationsAfter = new ArrayList<>();
+    private final ArrayList<Trio<Color, String, Pair<Integer, Integer>>> annotations = new ArrayList<>();
     private void fill_background() {
         if (!created) {
             image = new BufferedImage(width, height, super.IMAGE_TYPE);
@@ -85,22 +84,12 @@ public class Plot <T extends Number> extends Figure {
         image_graphics.fillRect(0, 0, width, height);
         generated = false;
     }
-    private void drawAnnotationsBefore() {
-        if (annotationsBefore.isEmpty()) {
+    private void drawAnnotations() {
+        if (annotations.isEmpty()) {
             return;
         }
         image_graphics.setFont(super.annotationFont);
-        for (final Trio<Color, String, Pair<Integer, Integer>> t : annotationsBefore) {
-            image_graphics.setPaint(t.first);
-            image_graphics.drawString(t.second, t.third.first, t.third.second);
-        }
-    }
-    private void drawAnnotationsAfter() {
-        if (annotationsAfter.isEmpty()) {
-            return;
-        }
-        image_graphics.setFont(super.annotationFont);
-        for (final Trio<Color, String, Pair<Integer, Integer>> t : annotationsAfter) {
+        for (final Trio<Color, String, Pair<Integer, Integer>> t : annotations) {
             image_graphics.setPaint(t.first);
             image_graphics.drawString(t.second, t.third.first, t.third.second);
         }
@@ -390,16 +379,32 @@ public class Plot <T extends Number> extends Figure {
                         BigDecimal.valueOf(dataMaxNT.doubleValue()));
         return getTickPositions(Min, Max);
     }
+    private BigDecimal getXRatio() {
+        BigDecimal xAxesRange = BigDecimal.valueOf(end_x).subtract(BigDecimal.valueOf(origin_x))
+                .add(BigDecimal.ONE);
+        BigDecimal range = plotmax_x.subtract(plotmin_x);
+        return xAxesRange.divide(range, (range.scale() + (int)
+                Math.ceil(Math.log10(xAxesRange.doubleValue())))*10, RoundingMode.HALF_UP);
+    }
+    private int getXPixelPos(BigDecimal xPosition) { // convert x-axis coordinate to a real pixel x-coordinate
+        if (xPosition == null) { // overkill, but I can't help myself
+            return 0;
+        }
+        return BigDecimal.valueOf(origin_x).add(xPosition.subtract(plotmin_x).multiply(getXRatio())).
+                setScale(0, RoundingMode.HALF_UP).intValue();
+    }
+    private int getXPixelPos(BigDecimal xPosition, BigDecimal XRatio) { // method allows for XRatio to be calc. once
+        if (xPosition == null) {
+            return 0;
+        }
+        return BigDecimal.valueOf(origin_x).add(xPosition.subtract(plotmin_x).multiply(XRatio)).
+                setScale(0, RoundingMode.HALF_UP).intValue();
+    }
     private void create_x_ticks() {
         if (num_xticks == 0) {
             return;
         }
-        BigDecimal orgX = BigDecimal.valueOf((long) origin_x);
-        BigDecimal xAxesRange = BigDecimal.valueOf((long) end_x).subtract(BigDecimal.valueOf((long) origin_x)).add(BigDecimal.ONE);
-        BigDecimal pixel_pos;
-        BigDecimal range = plotmax_x.subtract(plotmin_x);
-        BigDecimal ratio = xAxesRange.divide(range, (range.scale() + (int)
-                Math.ceil(Math.log10(xAxesRange.doubleValue())))*10, RoundingMode.HALF_UP);
+        BigDecimal ratio = getXRatio();
         image_graphics.setStroke(new BasicStroke(xtick_thickness, BasicStroke.CAP_BUTT, BasicStroke.JOIN_BEVEL));
         image_graphics.setPaint(axes_colour);
         int x;
@@ -411,24 +416,39 @@ public class Plot <T extends Number> extends Figure {
         Pair<BigDecimal, Pair<Integer, Integer>> p;
         for (BigDecimal pos : xtick_positions) {
             p = new Pair<>();
-            pixel_pos = orgX.add(pos.subtract(plotmin_x).multiply(ratio));
-            x = pixel_pos.setScale(0, RoundingMode.HALF_UP).intValue();
+            x = getXPixelPos(pos, ratio);
             image_graphics.drawLine(x, y1, x, y2);
             p.first = pos;
             p.second = new Pair<>(x, -y2 + height);
             xTickPixelPositions.add(p);
         }
     }
+    private BigDecimal getYRatio() {
+        BigDecimal yAxesRange = BigDecimal.valueOf(end_y).subtract(BigDecimal.valueOf(origin_y))
+                .add(BigDecimal.ONE);
+        BigDecimal range = plotmax_y.subtract(plotmin_y);
+        return yAxesRange.divide(range, (range.scale() + (int)
+                Math.ceil(Math.log10(yAxesRange.doubleValue())))*10, RoundingMode.HALF_UP);
+    }
+    private int getYPixelPos(BigDecimal yPosition) { // convert y-axis coordinate to a real pixel y-coordinate
+        if (yPosition == null) {
+            return 0;
+        }
+        return BigDecimal.valueOf(origin_y).add(yPosition.subtract(plotmin_y).multiply(getYRatio())).
+                setScale(0, RoundingMode.HALF_UP).intValue();
+    }
+    private int getYPixelPos(BigDecimal yPosition, BigDecimal YRatio) { // method allows for YRatio to be calc. once
+        if (yPosition == null) {
+            return 0;
+        }
+        return BigDecimal.valueOf(origin_y).add(yPosition.subtract(plotmin_y).multiply(YRatio)).
+                setScale(0, RoundingMode.HALF_UP).intValue();
+    }
     private void create_y_ticks() {
         if (num_yticks == 0) {
             return;
         }
-        BigDecimal orgY = BigDecimal.valueOf((long) origin_y);
-        BigDecimal yAxesRange = BigDecimal.valueOf((long) end_y).subtract(BigDecimal.valueOf((long) origin_y)).add(BigDecimal.ONE);
-        BigDecimal pixel_pos;
-        BigDecimal range = plotmax_y.subtract(plotmin_y);
-        BigDecimal ratio = yAxesRange.divide(range, (range.scale() + (int)
-                Math.ceil(Math.log10(yAxesRange.doubleValue())))*10, RoundingMode.HALF_UP);
+        BigDecimal ratio = getYRatio();
         image_graphics.setStroke(new BasicStroke(ytick_thickness, BasicStroke.CAP_BUTT, BasicStroke.JOIN_BEVEL));
         image_graphics.setPaint(axes_colour);
         int y = 0;
@@ -440,8 +460,7 @@ public class Plot <T extends Number> extends Figure {
         Pair<BigDecimal, Pair<Integer, Integer>> p;
         for (BigDecimal pos : ytick_positions) {
             p = new Pair<>();
-            pixel_pos = orgY.add(pos.subtract(plotmin_y).multiply(ratio));
-            y = pixel_pos.setScale(0, RoundingMode.HALF_UP).intValue();
+            y = getYPixelPos(pos, ratio);
             image_graphics.drawLine(x1, y, x2, y);
             p.first = pos;
             p.second = new Pair<>(x2, -y + height);
@@ -628,11 +647,9 @@ public class Plot <T extends Number> extends Figure {
         }
         return true;
     }
-
     public final boolean addData(T [] xValues, T [] yValues) {
         return addData(List.of(xValues), List.of(yValues));
     }
-
     public final boolean addXPadding(int number_of_pixels) { // if number is negative, plot is stretched in x-direction
         if (number_of_pixels == 0) {
             return false;
@@ -1071,7 +1088,7 @@ public class Plot <T extends Number> extends Figure {
     public final void removeSecondaryAxes() {
         secondaryAxes = false;
     }
-    private boolean addAnnotation(String text, int x_pos, int y_pos, Color color, boolean before) {
+    public boolean addAnnotation(String text, int x_pos, int y_pos, Color color) {
         if (text == null || color == null || x_pos < 0 || y_pos < 0 || x_pos >= fullWidth || y_pos >= fullHeight ||
                 text.isEmpty()) {
             return false;
@@ -1082,25 +1099,11 @@ public class Plot <T extends Number> extends Figure {
         t.third = new Pair<>();
         t.third.first = x_pos;
         t.third.second = y_pos;
-        if (before) {
-            annotationsBefore.add(t);
-        }
-        else {
-            annotationsAfter.add(t);
-        }
+        annotations.add(t);
         return true;
     }
-    public final boolean addAnnotationBefore(String text, int x_pos, int y_pos, Color color) {
-        return addAnnotation(text, x_pos, y_pos, color, true);
-    }
-    public final boolean addAnnotationBefore(String text, int x_pos, int y_pos) {
-        return addAnnotation(text, x_pos, y_pos, annotationColour, true);
-    }
-    public final boolean addAnnotationAfter(String text, int x_pos, int y_pos, Color color) {
-        return addAnnotation(text, x_pos, y_pos, color, false);
-    }
-    public final boolean addAnnotationAfter(String text, int x_pos, int y_pos) {
-        return addAnnotation(text, x_pos, y_pos, annotationColour, false);
+    public final boolean addAnnotation(String text, int x_pos, int y_pos) {
+        return addAnnotation(text, x_pos, y_pos, annotationColour);
     }
     public boolean generatePlot(boolean freePlot) {
         if (plots.isEmpty()) {
@@ -1109,7 +1112,6 @@ public class Plot <T extends Number> extends Figure {
         super.check_dim(); // change this
         // checkPath();
         fill_background();
-        drawAnnotationsBefore();
         create_axes();
         flipImage();
         drawXTickLabels();
@@ -1118,7 +1120,7 @@ public class Plot <T extends Number> extends Figure {
         // drawAnnotations();
         // drawXAxesLabel();
         // drawYAxesLabel();
-        drawAnnotationsAfter();
+        drawAnnotations();
         drawPlotToFigure(freePlot);
         generated = true;
         return true;
