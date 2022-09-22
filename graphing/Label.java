@@ -17,7 +17,8 @@ public final class Label extends TextBounds {
     private Color textColor = Color.black;
     private Color backgroundColor = null;
     private double rotation = 0d; // in radians
-    private Rectangle getRotatedRectangle(Rectangle r, double radians) {
+    boolean calculated = true;
+    public static Rectangle getRotatedRectangle(Rectangle r, double radians) {
         if (r == null) {
             return new Rectangle();
         }
@@ -27,7 +28,7 @@ public final class Label extends TextBounds {
         return new Rectangle((int) (r.x*Math.cos(radians) - r.y*Math.sin(radians)),
                              (int) (r.y*Math.cos(radians) + r.x*Math.sin(radians)), r.width, r.height);
     }
-    private Point getRotatedPoint(Point p, double radians) {
+    public static Point getRotatedPoint(Point p, double radians) {
         if (p == null) {
             return new Point();
         }
@@ -37,11 +38,12 @@ public final class Label extends TextBounds {
         return new Point((int) (p.x*Math.cos(radians) - p.y*Math.sin(radians)),
                          (int) (p.y*Math.cos(radians) + p.x*Math.sin(radians)));
     }
-    public Label(Label other) throws CharacterDoesNotFitException {
+    public Label(Label other) {
         super(other);
         textColor = new Color(other.textColor.getRGB());
         backgroundColor = new Color(other.backgroundColor.getRGB());
         rotation = other.rotation;
+        calculated = other.calculated;
     }
     public Label(Figure fig, String text, int xPos, int yPos, int width, int justification) throws
             CharacterDoesNotFitException {
@@ -58,6 +60,16 @@ public final class Label extends TextBounds {
     public Label(Graphics2D graphics, String text, Font font, int xPos, int yPos, int width, int justification) throws
             CharacterDoesNotFitException {
         super(graphics, text, font, xPos, yPos, width, justification);
+    }
+    public Label(String text, int xPos, int yPos, int width, int justification) throws
+            CharacterDoesNotFitException {
+        super(text, null, xPos, yPos, width, justification);
+        calculated = false;
+    }
+    public Label(String text, Font font, int xPos, int yPos, int width, int justification) throws
+            CharacterDoesNotFitException {
+        super(text, font, xPos, yPos, width, justification);
+        calculated = false;
     }
     public Label(Figure fig, String text, Color bgColor, Color txtColor, int xPos, int yPos, int width,
                  double rotationInRadians, int justification) throws CharacterDoesNotFitException {
@@ -86,6 +98,22 @@ public final class Label extends TextBounds {
         this.textColor = txtColor == null ? Color.black : txtColor;
         this.backgroundColor = bgColor == null ? graphics.getColor() : bgColor;
         this.rotation = rotationInRadians;
+    }
+    public Label(String text, Color bgColor, Color txtColor, int xPos, int yPos, int width,
+                 double rotationInRadians, int justification) {
+        super(text, null, xPos, yPos, width, justification);
+        this.textColor = txtColor == null ? Color.black : txtColor;
+        this.backgroundColor = bgColor == null ? Color.white : bgColor;
+        this.rotation = rotationInRadians;
+        calculated = false;
+    }
+    public Label(String text, Font font, Color bgColor, Color txtColor, int xPos, int yPos,
+                 int width, double rotationInRadians, int justification) {
+        super(text, font, xPos, yPos, width, justification);
+        this.textColor = txtColor == null ? Color.black : txtColor;
+        this.backgroundColor = bgColor == null ? Color.white : bgColor;
+        this.rotation = rotationInRadians;
+        calculated = false;
     }
     public boolean setTextColor(Color col) {
         if (col == null) {

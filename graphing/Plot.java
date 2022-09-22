@@ -27,8 +27,8 @@ import greg.misc.Pair;
 public class Plot <T extends Number> extends Figure {
     private int width;
     private int height;
-    private BufferedImage image;
-    private Graphics2D image_graphics;
+    protected BufferedImage image;
+    protected Graphics2D image_graphics;
     private final ArrayList<ArrayList<Pair<BigDecimal, BigDecimal>>> plots = new ArrayList<>();
     private int axes_thickness;
     private int axes_thickness2;

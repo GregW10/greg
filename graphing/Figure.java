@@ -16,14 +16,14 @@ public abstract class Figure {
     private static final short DEF_HEIGHT = 1704;
     public static final short MIN_WIDTH = 300;
     public static final short MIN_HEIGHT = 200;
-    String path = System.getProperty("user.home") + System.getProperty("file.separator") + "Figure1.bmp";
-    String imageFormat = "bmp";
-    Color figureBackground = Color.white;
-    int fullWidth = DEF_WIDTH;
-    int fullHeight = DEF_HEIGHT;
-    int IMAGE_TYPE = BufferedImage.TYPE_3BYTE_BGR;
-    BufferedImage fullImage;
-    Graphics2D fullImageGraphics;
+    protected String path = System.getProperty("user.home") + System.getProperty("file.separator") + "Figure1.bmp";
+    protected String imageFormat = "bmp";
+    protected Color figureBackground = Color.white;
+    protected int fullWidth = DEF_WIDTH;
+    protected int fullHeight = DEF_HEIGHT;
+    protected int IMAGE_TYPE = BufferedImage.TYPE_3BYTE_BGR;
+    protected BufferedImage fullImage;
+    protected Graphics2D fullImageGraphics;
     private Font xAxesLabelFont;
     private Font yAxesLabelFont;
     private Font titleFont;
@@ -34,6 +34,7 @@ public abstract class Figure {
     private Color annotationColour = Color.black;
     private Pair<Integer, Integer> titleCoords;
     private final ArrayList<Trio<Color, Pair<String, Font>, Pair<Integer, Integer>>> annotations = new ArrayList<>();
+    private final ArrayList<Label> labelsLater = new ArrayList<>();
     private void createImage() {
         fullImage = new BufferedImage(fullWidth, fullHeight, IMAGE_TYPE);
         fullImageGraphics = fullImage.createGraphics();
@@ -298,8 +299,26 @@ public abstract class Figure {
     }
     // public abstract boolean setFigureDimensions(int newWidth, int newHeight);
     // ------------------------------------------------ text additions ------------------------------------------------
-    public final boolean addAnnotation(String text, int x_pos, int y_pos, Color color) {
-        if (x_pos < 0 || y_pos < 0 || x_pos >= fullWidth || y_pos >= fullHeight) {
+    public final boolean addAnnotationNow(String text, int x_pos, int y_pos, Color color) { // always single-line
+        if (text == null ||  color == null || x_pos < 0 || y_pos < 0 || x_pos >= fullWidth || y_pos >= fullHeight ||
+                text.isEmpty()) {
+            return false;
+        } // no need to create a Label object below for a single line of text
+        Font currentFont = fullImageGraphics.getFont();
+        Color currentColor = fullImageGraphics.getColor();
+        fullImageGraphics.setPaint(color);
+        fullImageGraphics.setFont(annotationFont);
+        fullImageGraphics.drawString(text, x_pos, y_pos);
+        fullImageGraphics.setFont(currentFont);
+        fullImageGraphics.setPaint(currentColor);
+        return true;
+    }
+    public final boolean addAnnotationNow(String text, int x_pos, int y_pos) {
+        return addAnnotationNow(text, x_pos, y_pos, annotationColour);
+    }
+    public final boolean addAnnotationLater(String text, int x_pos, int y_pos, Color color) {
+        if (text == null || color == null || x_pos < 0 || y_pos < 0 || x_pos >= fullWidth || y_pos >= fullHeight ||
+                text.isEmpty()) {
             return false;
         }
         Trio<Color, Pair<String, Font>, Pair<Integer, Integer>> t = new Trio<>();
@@ -313,20 +332,37 @@ public abstract class Figure {
         annotations.add(t);
         return true;
     }
-    public final boolean addAnnotation(String text, int x_pos, int y_pos) {
-        return addAnnotation(text, x_pos, y_pos, annotationColour);
-    }
-    public final boolean addLabel(Label label) {
+    public final boolean addAnnotationLater(String text, int x_pos, int y_pos) {
+        return addAnnotationLater(text, x_pos, y_pos, annotationColour);
+    } // draws Label obj. immediately onto Figure - should therefore not be used for labels 'behind' Plot image, since
+    public final boolean addLabelNow(Label label) throws CharacterDoesNotFitException { // it is later superimposed
         if (label == null) {
             return false;
         }
+        if (!label.calculated) {
+            label.calculate(fullImageGraphics, null);
+        }
+        label.draw();
         return true;
     }
     // -----------------------------------------------------------------------------------------------------------------
     public final void writeFigure(boolean freeMemory) throws IOException {
+        drawAnnotations();
         ImageIO.write(fullImage, imageFormat, new File(path));
         if (freeMemory) {
             clearFigure();
         }
+    }
+    public final boolean openFigure() { // if file exists and figure hasn't been generated, will open file anyway
+        File f = new File(path);
+        if (f.exists()) {
+            try {
+                Desktop.getDesktop().open(f);
+            } catch(Exception e) { // there are various different exceptions that open() could throw
+                return false;
+            }
+            return true;
+        }
+        return false;
     }
 }

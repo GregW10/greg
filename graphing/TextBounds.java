@@ -16,7 +16,7 @@ import java.awt.Point;
 import java.awt.Desktop;
 
 public class TextBounds {
-    protected Graphics2D g;
+    protected Graphics2D g = null;
     protected FontMetrics fm;
     protected Font f;
     protected final String txt;
@@ -30,9 +30,28 @@ public class TextBounds {
     public static final int RIGHT_JUSTIFY = 4;
     private final int justification;
     private final boolean empty;
+    public TextBounds(String text, Font font, int xPosition, int yPosition, int width, int textJustification) {
+        if (text == null) {
+            throw new NullPointerException();
+        }
+        if ((textJustification & textJustification - 1) != 0 && textJustification >> 3 != 0) {
+            textJustification = CENTER_JUSTIFY;
+        }
+        txt = text;
+        f = font; // it is OK here if font is null
+        rect.x = xPosition;
+        rect.y = yPosition;
+        rect.width = width;
+        justification = textJustification;
+        if (text.isEmpty()) {
+            empty = true;
+            return;
+        }
+        empty = false;
+    }
     public TextBounds(Graphics2D graphics, String text, Font font, int xPosition, int yPosition, int width,
                int textJustification) throws CharacterDoesNotFitException { // creates object with the specified font
-        if (graphics == null || text == null) {
+        if (graphics == null || text == null || font == null) {
             throw new NullPointerException();
         }
         if ((textJustification & textJustification - 1) != 0 && textJustification >> 3 != 0) {
@@ -77,7 +96,7 @@ public class TextBounds {
             CharacterDoesNotFitException {
         this(fig.fullImageGraphics, text, xPosition, yPosition, width, textJustification);
     }
-    public TextBounds(TextBounds other) throws CharacterDoesNotFitException {
+    public TextBounds(TextBounds other) {
         g = other.g; // only choice
         fm = g.getFontMetrics();
         f = new Font(other.f.getFontName(), other.f.getStyle(), other.f.getSize());
@@ -85,6 +104,8 @@ public class TextBounds {
         rect.x = other.rect.x;
         rect.y = other.rect.y;
         rect.width = other.rect.width;
+        words.clear();
+        lines.clear();
         words.addAll(other.words);
         lines.addAll(other.lines);
         fontHeight = fm.getHeight();
@@ -92,25 +113,36 @@ public class TextBounds {
         justification = other.justification;
         empty = other.empty;
 
-    } // below method forces TextBounds obj. to recalculate everything, in case Graphics2D obj. has changed, or a new
-    public boolean recalculate(Font newFont) throws CharacterDoesNotFitException { // Font is wished to be used
+    } // below method forces TextBounds obj. to recalculate everything for new Graphics2D and Font objects
+    boolean calculate(Graphics2D graphics, Font newFont) throws CharacterDoesNotFitException {
         if (empty) {
             return false;
         }
+        if (graphics != null) {
+            g = graphics;
+        }
+        else {
+            if (g == null) { // for a TextBounds object constructed without a Graphics2D object
+                return false;
+            }
+        }
         Font originalFont = g.getFont();
         if (newFont != null) {
-            g.setFont(newFont);
             f = newFont;
         }
+        else {
+            if (f == null) {
+                f = originalFont;
+            }
+        }
+        g.setFont(f);
         fm = g.getFontMetrics();
         fontHeight = fm.getHeight();
         fontAscent = fm.getAscent();
         createWords();
         createLines();
         rect.height = fontHeight*lines.size();
-        if (newFont != null) {
-            g.setFont(originalFont);
-        }
+        g.setFont(originalFont);
         return true;
     }
     public final int getNumberOfLines() {
