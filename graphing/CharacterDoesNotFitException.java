@@ -1,6 +1,6 @@
 package greg.graphing;
 
-public class CharacterDoesNotFitException extends Exception {
+public class CharacterDoesNotFitException extends RuntimeException {
     CharacterDoesNotFitException() {
         super("Character does not fit.");
     }

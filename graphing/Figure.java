@@ -27,14 +27,14 @@ public abstract class Figure {
     private Font xAxesLabelFont;
     private Font yAxesLabelFont;
     private Font titleFont;
-    private Font annotationFont;
+    protected Font annotationFont;
     private Color xAxesLabelColour = Color.black;
     private Color yAxesLabelColour = Color.black;
     private Color titleColour = Color.black;
-    private Color annotationColour = Color.black;
+    protected Color annotationColour = Color.black;
     private Pair<Integer, Integer> titleCoords;
-    private final ArrayList<Trio<Color, Pair<String, Font>, Pair<Integer, Integer>>> annotations = new ArrayList<>();
-    private final ArrayList<Label> labelsLater = new ArrayList<>();
+    private final ArrayList<Trio<Color, String, Pair<Integer, Integer>>> annotations = new ArrayList<>();
+    private final ArrayList<Label> laterLabels = new ArrayList<>();
     private void createImage() {
         fullImage = new BufferedImage(fullWidth, fullHeight, IMAGE_TYPE);
         fullImageGraphics = fullImage.createGraphics();
@@ -45,10 +45,18 @@ public abstract class Figure {
         if (annotations.isEmpty()) {
             return;
         }
-        for (final Trio<Color, Pair<String, Font>, Pair<Integer, Integer>> t : annotations) {
+        fullImageGraphics.setFont(annotationFont);
+        for (final Trio<Color, String, Pair<Integer, Integer>> t : annotations) {
             fullImageGraphics.setPaint(t.first);
-            fullImageGraphics.setFont(t.second.second);
-            fullImageGraphics.drawString(t.second.first, t.third.first, t.third.second);
+            fullImageGraphics.drawString(t.second, t.third.first, t.third.second);
+        }
+    }
+    private void drawLabels() throws CharacterDoesNotFitException {
+        for (final Label l : laterLabels) {
+            if (!l.calculated) {
+                l.calculate(fullImageGraphics, null);
+            }
+            l.draw();
         }
     }
     private boolean checkPath() {
@@ -321,12 +329,10 @@ public abstract class Figure {
                 text.isEmpty()) {
             return false;
         }
-        Trio<Color, Pair<String, Font>, Pair<Integer, Integer>> t = new Trio<>();
+        Trio<Color, String, Pair<Integer, Integer>> t = new Trio<>();
         t.first = color;
-        t.second = new Pair<>();
+        t.second = text;
         t.third = new Pair<>();
-        t.second.first = text;
-        t.second.second = annotationFont;
         t.third.first = x_pos;
         t.third.second = y_pos;
         annotations.add(t);
@@ -345,9 +351,17 @@ public abstract class Figure {
         label.draw();
         return true;
     }
+    public final boolean addLabelLater(Label label) {
+        if (label == null) {
+            return false;
+        }
+        laterLabels.add(label);
+        return true;
+    }
     // -----------------------------------------------------------------------------------------------------------------
-    public final void writeFigure(boolean freeMemory) throws IOException {
+    public final void writeFigure(boolean freeMemory) throws IOException, CharacterDoesNotFitException {
         drawAnnotations();
+        drawLabels();
         ImageIO.write(fullImage, imageFormat, new File(path));
         if (freeMemory) {
             clearFigure();

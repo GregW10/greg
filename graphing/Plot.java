@@ -1,7 +1,6 @@
 package greg.graphing;
 
 import java.awt.Color;
-import java.lang.Number;
 import java.awt.image.BufferedImage;
 import java.awt.Graphics2D;
 import java.math.BigInteger;
@@ -9,11 +8,7 @@ import java.util.List;
 import java.util.ArrayList;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
-import java.lang.Math;
-import java.lang.Double;
 import java.awt.BasicStroke;
-import javax.imageio.ImageIO;
-import java.io.File;
 import java.io.IOException;
 import java.util.Optional;
 import java.awt.geom.AffineTransform;
@@ -23,6 +18,7 @@ import java.awt.FontMetrics;
 import java.awt.font.GlyphVector;
 import java.awt.Rectangle;
 import greg.misc.Pair;
+import greg.misc.Trio;
 
 public class Plot <T extends Number> extends Figure {
     private int width;
@@ -76,6 +72,8 @@ public class Plot <T extends Number> extends Figure {
     private boolean xExpSet = false;
     private boolean yTickLabelExpNotation;
     private boolean yExpSet = false;
+    private final ArrayList<Trio<Color, String, Pair<Integer, Integer>>> annotationsBefore = new ArrayList<>();
+    private final ArrayList<Trio<Color, String, Pair<Integer, Integer>>> annotationsAfter = new ArrayList<>();
     private void fill_background() {
         if (!created) {
             image = new BufferedImage(width, height, super.IMAGE_TYPE);
@@ -86,6 +84,26 @@ public class Plot <T extends Number> extends Figure {
         image_graphics.setPaint(super.figureBackground);
         image_graphics.fillRect(0, 0, width, height);
         generated = false;
+    }
+    private void drawAnnotationsBefore() {
+        if (annotationsBefore.isEmpty()) {
+            return;
+        }
+        image_graphics.setFont(super.annotationFont);
+        for (final Trio<Color, String, Pair<Integer, Integer>> t : annotationsBefore) {
+            image_graphics.setPaint(t.first);
+            image_graphics.drawString(t.second, t.third.first, t.third.second);
+        }
+    }
+    private void drawAnnotationsAfter() {
+        if (annotationsAfter.isEmpty()) {
+            return;
+        }
+        image_graphics.setFont(super.annotationFont);
+        for (final Trio<Color, String, Pair<Integer, Integer>> t : annotationsAfter) {
+            image_graphics.setPaint(t.first);
+            image_graphics.drawString(t.second, t.third.first, t.third.second);
+        }
     }
     private double gradient(double x1, double y1, double x2, double y2) {
         return (y2 - y1) / (x2 - x1);
@@ -1053,6 +1071,37 @@ public class Plot <T extends Number> extends Figure {
     public final void removeSecondaryAxes() {
         secondaryAxes = false;
     }
+    private boolean addAnnotation(String text, int x_pos, int y_pos, Color color, boolean before) {
+        if (text == null || color == null || x_pos < 0 || y_pos < 0 || x_pos >= fullWidth || y_pos >= fullHeight ||
+                text.isEmpty()) {
+            return false;
+        }
+        Trio<Color, String, Pair<Integer, Integer>> t = new Trio<>();
+        t.first = color;
+        t.second = text;
+        t.third = new Pair<>();
+        t.third.first = x_pos;
+        t.third.second = y_pos;
+        if (before) {
+            annotationsBefore.add(t);
+        }
+        else {
+            annotationsAfter.add(t);
+        }
+        return true;
+    }
+    public final boolean addAnnotationBefore(String text, int x_pos, int y_pos, Color color) {
+        return addAnnotation(text, x_pos, y_pos, color, true);
+    }
+    public final boolean addAnnotationBefore(String text, int x_pos, int y_pos) {
+        return addAnnotation(text, x_pos, y_pos, annotationColour, true);
+    }
+    public final boolean addAnnotationAfter(String text, int x_pos, int y_pos, Color color) {
+        return addAnnotation(text, x_pos, y_pos, color, false);
+    }
+    public final boolean addAnnotationAfter(String text, int x_pos, int y_pos) {
+        return addAnnotation(text, x_pos, y_pos, annotationColour, false);
+    }
     public boolean generatePlot(boolean freePlot) {
         if (plots.isEmpty()) {
             return false;
@@ -1060,6 +1109,7 @@ public class Plot <T extends Number> extends Figure {
         super.check_dim(); // change this
         // checkPath();
         fill_background();
+        drawAnnotationsBefore();
         create_axes();
         flipImage();
         drawXTickLabels();
@@ -1068,11 +1118,12 @@ public class Plot <T extends Number> extends Figure {
         // drawAnnotations();
         // drawXAxesLabel();
         // drawYAxesLabel();
+        drawAnnotationsAfter();
         drawPlotToFigure(freePlot);
         generated = true;
         return true;
     }
-    public final boolean writeImage(boolean free_image) throws IOException {
+    public final boolean writeImage(boolean free_image) throws IOException, CharacterDoesNotFitException {
         if (!generated) {
             return false;
         }
@@ -1080,7 +1131,7 @@ public class Plot <T extends Number> extends Figure {
         super.writeFigure(free_image);
         return true;
     }
-    public final boolean generatePlotAndWrite(boolean free_image) throws IOException {
+    public final boolean generatePlotAndWrite(boolean free_image) throws IOException, CharacterDoesNotFitException {
         if (!generatePlot(image != null && free_image)) {
             return false;
         }
