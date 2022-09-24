@@ -73,10 +73,10 @@ public class Plot <T extends Number> extends Figure {
     private boolean yTickLabelExpNotation;
     private boolean yExpSet = false;
     private final ArrayList<Trio<Color, String, Pair<Integer, Integer>>> annotations = new ArrayList<>();
+    private final ArrayList<Label> labels = new ArrayList<>();
     private void fill_background() {
         if (!created) {
             image = new BufferedImage(width, height, super.IMAGE_TYPE);
-            // image = super.fullImage.getSubimage((super.fullWidth-width)/2, (super.fullHeight-height)/2, width, height);
             image_graphics = image.createGraphics();
             created = true;
         }
@@ -92,6 +92,14 @@ public class Plot <T extends Number> extends Figure {
         for (final Trio<Color, String, Pair<Integer, Integer>> t : annotations) {
             image_graphics.setPaint(t.first);
             image_graphics.drawString(t.second, t.third.first, t.third.second);
+        }
+    }
+    private void drawLabels() {
+        for (final Label l : labels) {
+            if (!l.calculated) {
+                l.calculate(this.image_graphics, null);
+            }
+            l.draw();
         }
     }
     private double gradient(double x1, double y1, double x2, double y2) {
@@ -380,8 +388,7 @@ public class Plot <T extends Number> extends Figure {
         return getTickPositions(Min, Max);
     }
     private BigDecimal getXRatio() {
-        BigDecimal xAxesRange = BigDecimal.valueOf(end_x).subtract(BigDecimal.valueOf(origin_x))
-                .add(BigDecimal.ONE);
+        BigDecimal xAxesRange = BigDecimal.valueOf(end_x).subtract(BigDecimal.valueOf(origin_x));//.add(BigDecimal.ONE);
         BigDecimal range = plotmax_x.subtract(plotmin_x);
         return xAxesRange.divide(range, (range.scale() + (int)
                 Math.ceil(Math.log10(xAxesRange.doubleValue())))*10, RoundingMode.HALF_UP);
@@ -408,8 +415,8 @@ public class Plot <T extends Number> extends Figure {
         image_graphics.setStroke(new BasicStroke(xtick_thickness, BasicStroke.CAP_BUTT, BasicStroke.JOIN_BEVEL));
         image_graphics.setPaint(axes_colour);
         int x;
-        int y1 = origin_y - axes_thickness/2;
-        int y2 = y1 - xtick_length;
+        int y1 = origin_y + axes_thickness/2 + 1;
+        int y2 = y1 - axes_thickness - xtick_length;
         if (xtick_positions.isEmpty() || outdated_xtick_pos) {
             xtick_positions = getTickPositionsBase(plotmin_x, plotmax_x);
         }
@@ -424,8 +431,7 @@ public class Plot <T extends Number> extends Figure {
         }
     }
     private BigDecimal getYRatio() {
-        BigDecimal yAxesRange = BigDecimal.valueOf(end_y).subtract(BigDecimal.valueOf(origin_y))
-                .add(BigDecimal.ONE);
+        BigDecimal yAxesRange = BigDecimal.valueOf(end_y).subtract(BigDecimal.valueOf(origin_y));//.add(BigDecimal.ONE);
         BigDecimal range = plotmax_y.subtract(plotmin_y);
         return yAxesRange.divide(range, (range.scale() + (int)
                 Math.ceil(Math.log10(yAxesRange.doubleValue())))*10, RoundingMode.HALF_UP);
@@ -451,9 +457,9 @@ public class Plot <T extends Number> extends Figure {
         BigDecimal ratio = getYRatio();
         image_graphics.setStroke(new BasicStroke(ytick_thickness, BasicStroke.CAP_BUTT, BasicStroke.JOIN_BEVEL));
         image_graphics.setPaint(axes_colour);
-        int y = 0;
-        int x1 = origin_x - axes_thickness/2;
-        int x2 = x1 - ytick_length;
+        int y;
+        int x1 = origin_x + axes_thickness/2 + 1;
+        int x2 = x1 - axes_thickness - ytick_length;
         if (ytick_positions.isEmpty() || outdated_ytick_pos) {
             ytick_positions = getTickPositionsBase(plotmin_y, plotmax_y);
         }
@@ -1088,22 +1094,60 @@ public class Plot <T extends Number> extends Figure {
     public final void removeSecondaryAxes() {
         secondaryAxes = false;
     }
-    public boolean addAnnotation(String text, int x_pos, int y_pos, Color color) {
-        if (text == null || color == null || x_pos < 0 || y_pos < 0 || x_pos >= fullWidth || y_pos >= fullHeight ||
-                text.isEmpty()) {
+    public boolean addAnnotation(String text, T x_pos, T y_pos, Color color) {
+        if (text == null || color == null || x_pos == null || y_pos == null || text.isEmpty()) {
             return false;
+        }
+        if (!typeSet) {
+            setType(x_pos);
         }
         Trio<Color, String, Pair<Integer, Integer>> t = new Trio<>();
         t.first = color;
         t.second = text;
         t.third = new Pair<>();
-        t.third.first = x_pos;
-        t.third.second = y_pos;
+        t.third.first = getXPixelPos(isBigD ? (BigDecimal) x_pos : (isIntegral ? BigDecimal.valueOf(x_pos.longValue()) :
+                BigDecimal.valueOf(x_pos.doubleValue())));
+        t.third.second = -getYPixelPos(isBigD ? (BigDecimal) y_pos : (isIntegral ? BigDecimal.valueOf(y_pos.longValue())
+                : BigDecimal.valueOf(y_pos.doubleValue()))) + height;
         annotations.add(t);
         return true;
     }
-    public final boolean addAnnotation(String text, int x_pos, int y_pos) {
+    public final boolean addAnnotation(String text, T x_pos, T y_pos) {
         return addAnnotation(text, x_pos, y_pos, annotationColour);
+    }
+    public final boolean addLabel(Label label) {
+        if (label == null) {
+            return false;
+        }
+        if (label instanceof PlotLabel<? extends Number> pLabel) {
+            BigDecimal xPosition;
+            BigDecimal yPosition;
+            BigDecimal w;
+            if (pLabel.xPos instanceof BigDecimal) {
+                xPosition = (BigDecimal) pLabel.xPos;
+                yPosition = (BigDecimal) pLabel.yPos;
+                w = (BigDecimal) pLabel.w;
+            }
+            else if (pLabel.xPos instanceof Float || pLabel.xPos instanceof Double) {
+                xPosition = BigDecimal.valueOf(pLabel.xPos.doubleValue());
+                yPosition = BigDecimal.valueOf(pLabel.yPos.doubleValue());
+                w = BigDecimal.valueOf(pLabel.w.doubleValue());
+            }
+            else {
+                xPosition = BigDecimal.valueOf(pLabel.xPos.longValue());
+                yPosition = BigDecimal.valueOf(pLabel.yPos.longValue());
+                w = BigDecimal.valueOf(pLabel.w.longValue());
+            }
+            BigDecimal XRatio = getXRatio();
+            BigDecimal YRatio = getYRatio();
+            label.rect.x = getXPixelPos(xPosition, XRatio);
+            label.rect.y = -getYPixelPos(yPosition, YRatio) + height;
+            label.rect.width = w.multiply(BigDecimal.valueOf(Math.sqrt(Math.pow(Math.cos(label.rotation)*XRatio.doubleValue(), 2d) +
+                    Math.pow(Math.sin(label.rotation)*YRatio.doubleValue(), 2d)))).intValue();
+            label.unlock();
+        }
+        labels.add(label);
+        return true;
     }
     public boolean generatePlot(boolean freePlot) {
         if (plots.isEmpty()) {
@@ -1121,6 +1165,7 @@ public class Plot <T extends Number> extends Figure {
         // drawXAxesLabel();
         // drawYAxesLabel();
         drawAnnotations();
+        drawLabels(); // Labels will be drawn on top of annotations, in case of overlap
         drawPlotToFigure(freePlot);
         generated = true;
         return true;

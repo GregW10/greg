@@ -17,7 +17,7 @@ import java.awt.Desktop;
 
 public class TextBounds {
     protected Graphics2D g = null;
-    protected FontMetrics fm;
+    protected FontMetrics fm = null;
     protected Font f;
     protected final String txt;
     protected final Rectangle rect = new Rectangle();
@@ -30,6 +30,25 @@ public class TextBounds {
     public static final int RIGHT_JUSTIFY = 4;
     private final int justification;
     private final boolean empty;
+    protected boolean calculated = false;
+    protected boolean locked = false; // only true for PlotLabel objects
+    protected TextBounds(String text, Font font, int textJustification) { // ctor for PlotLabel objects
+        if (text == null) {
+            throw new NullPointerException();
+        }
+        if ((textJustification & textJustification - 1) != 0 && textJustification >> 3 != 0) {
+            textJustification = CENTER_JUSTIFY;
+        }
+        f = font;
+        txt = text;
+        justification = textJustification;
+        if (text.isEmpty()) {
+            empty = true;
+            return;
+        }
+        empty = false;
+        locked = true;
+    }
     public TextBounds(String text, Font font, int xPosition, int yPosition, int width, int textJustification) {
         if (text == null) {
             throw new NullPointerException();
@@ -79,6 +98,7 @@ public class TextBounds {
         rect.height = fontHeight * lines.size();
         empty = false;
         graphics.setFont(originalFont);
+        calculated = true;
     }
     public TextBounds(Graphics2D graphics, String text, int xPosition, int yPosition, int width,
                int textJustification) throws CharacterDoesNotFitException { // creates object with graphics' font
@@ -112,10 +132,15 @@ public class TextBounds {
         fontAscent = fm.getAscent();
         justification = other.justification;
         empty = other.empty;
-
-    } // below method forces TextBounds obj. to recalculate everything for new Graphics2D and Font objects
+        this.calculated = other.calculated;
+        this.locked = other.locked;
+    }
+    void unlock() { // package-private - only to be called within Plot objects
+        locked = false;
+    }
+    // below method forces TextBounds obj. to recalculate everything for new Graphics2D and Font objects
     boolean calculate(Graphics2D graphics, Font newFont) throws CharacterDoesNotFitException {
-        if (empty) {
+        if (empty || locked) {
             return false;
         }
         if (graphics != null) {
@@ -143,7 +168,7 @@ public class TextBounds {
         createLines();
         rect.height = fontHeight*lines.size();
         g.setFont(originalFont);
-        return true;
+        return calculated = true;
     }
     public final int getNumberOfLines() {
         return lines.size();
@@ -165,8 +190,9 @@ public class TextBounds {
     }
     private void createWords() {
         words.clear();
-        if (txt.indexOf(' ') == -1) {
+        if (txt.indexOf(' ') == -1 && txt.indexOf('\n') == -1 && txt.indexOf('\t') == -1) {
             words.add(txt);
+            return;
         }
         StringBuilder builder = new StringBuilder();
         int last = txt.length() - 1;

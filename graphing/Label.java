@@ -13,11 +13,10 @@ import javax.imageio.ImageIO;
 import java.io.IOException;
 import java.awt.Desktop;
 
-public final class Label extends TextBounds {
-    private Color textColor = Color.black;
-    private Color backgroundColor = null;
-    private double rotation = 0d; // in radians
-    boolean calculated = true;
+public class Label extends TextBounds {
+    protected Color textColor = Color.black;
+    protected Color backgroundColor = null;
+    protected double rotation = 0d; // in radians
     public static Rectangle getRotatedRectangle(Rectangle r, double radians) {
         if (r == null) {
             return new Rectangle();
@@ -43,7 +42,6 @@ public final class Label extends TextBounds {
         textColor = new Color(other.textColor.getRGB());
         backgroundColor = new Color(other.backgroundColor.getRGB());
         rotation = other.rotation;
-        calculated = other.calculated;
     }
     public Label(Figure fig, String text, int xPos, int yPos, int width, int justification) throws
             CharacterDoesNotFitException {
@@ -64,12 +62,13 @@ public final class Label extends TextBounds {
     public Label(String text, int xPos, int yPos, int width, int justification) throws
             CharacterDoesNotFitException {
         super(text, null, xPos, yPos, width, justification);
-        calculated = false;
     }
     public Label(String text, Font font, int xPos, int yPos, int width, int justification) throws
             CharacterDoesNotFitException {
         super(text, font, xPos, yPos, width, justification);
-        calculated = false;
+    }
+    protected Label(String text, Font font, int justification) throws CharacterDoesNotFitException {
+        super(text, font, justification);
     }
     public Label(Figure fig, String text, Color bgColor, Color txtColor, int xPos, int yPos, int width,
                  double rotationInRadians, int justification) throws CharacterDoesNotFitException {
@@ -105,7 +104,6 @@ public final class Label extends TextBounds {
         this.textColor = txtColor == null ? Color.black : txtColor;
         this.backgroundColor = bgColor == null ? Color.white : bgColor;
         this.rotation = rotationInRadians;
-        calculated = false;
     }
     public Label(String text, Font font, Color bgColor, Color txtColor, int xPos, int yPos,
                  int width, double rotationInRadians, int justification) {
@@ -113,7 +111,12 @@ public final class Label extends TextBounds {
         this.textColor = txtColor == null ? Color.black : txtColor;
         this.backgroundColor = bgColor == null ? Color.white : bgColor;
         this.rotation = rotationInRadians;
-        calculated = false;
+    }
+    protected Label(String text, Font font, Color bgColor, Color txtColor, double rotationInRadians, int justification){
+        super(text, font, justification);
+        this.textColor = txtColor == null ? Color.black : txtColor;
+        this.backgroundColor = bgColor == null ? Color.white : bgColor;
+        this.rotation = rotationInRadians;
     }
     public boolean setTextColor(Color col) {
         if (col == null) {
@@ -142,7 +145,7 @@ public final class Label extends TextBounds {
         return rotation;
     }
     public boolean draw() {
-        if (super.isEmpty()) {
+        if (super.isEmpty() || !super.calculated) {
             return false;
         }
         Color originalColor = null;
@@ -152,13 +155,13 @@ public final class Label extends TextBounds {
         }
         Font originalFont = super.g.getFont();
         super.g.setFont(super.f);
-        super.g.rotate(rotation, super.rect.x, super.rect.y);
+        super.g.rotate(-rotation, super.rect.x, super.rect.y);
         super.g.fill(super.getBounds());
         super.g.setPaint(textColor);
         for (final Trio<String, Rectangle, Point> t : super.getLines()) {
             g.drawString(t.first, t.third.x, t.third.y);
         }
-        super.g.rotate(-rotation, super.rect.x, super.rect.y);
+        super.g.rotate(rotation, super.rect.x, super.rect.y);
         super.g.setFont(originalFont);
         if (backgroundColor != null) {
             super.g.setPaint(originalColor);
