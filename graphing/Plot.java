@@ -2,6 +2,7 @@ package greg.graphing;
 
 import java.awt.Color;
 import java.awt.image.BufferedImage;
+import java.awt.Graphics;
 import java.awt.Graphics2D;
 import java.math.BigInteger;
 import java.util.List;
@@ -17,6 +18,11 @@ import java.awt.Font;
 import java.awt.FontMetrics;
 import java.awt.font.GlyphVector;
 import java.awt.Rectangle;
+import javax.swing.JFrame; // for displaying the Figure without writing it to a file
+import javax.swing.JPanel;
+import javax.swing.JLabel;
+import javax.swing.ImageIcon;
+import java.awt.event.WindowAdapter;
 import greg.misc.Pair;
 import greg.misc.Trio;
 
@@ -1183,6 +1189,66 @@ public class Plot <T extends Number> extends Figure {
             return false;
         }
         return writeImage(free_image);
+    }
+    public final void show(boolean block) { // generates (if needed) the plot and shows it, without writing to file
+        if (!generated) {
+            this.generatePlot(false);
+        }
+        java.awt.Dimension screenSize = java.awt.Toolkit.getDefaultToolkit().getScreenSize();
+        int newHeight;
+        int newWidth;
+        double heightRatio = ((double) super.fullHeight)/((double) screenSize.height);
+        double widthRatio = ((double) super.fullWidth)/((double) screenSize.width);
+        double plotRatio = ((double) super.fullWidth)/((double) super.fullHeight);
+        if (heightRatio >= widthRatio) { // making sure the image fits within the screen
+            newHeight = (int) (((double) screenSize.height)*(2d/3d));
+            newWidth = (int) (newHeight*plotRatio);
+        }
+        else {
+            newWidth = (int) (((double) screenSize.width)*(2d/3d));
+            newHeight = (int) (newWidth/plotRatio);
+        }
+        JPanel panel = new JPanel() {
+            @Override // painting the image inside the JPanel and making sure it always occupies the entire JPanel
+            protected void paintComponent(Graphics g) {
+                super.paintComponent(g);
+                g.drawImage(Plot.super.fullImage, 0, 0, this.getWidth(), this.getHeight(), null);
+            }
+        };
+        JFrame frame = new JFrame("Plot");
+        frame.setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE); // app should not exit just because plot is closed
+        frame.setSize(newWidth, newHeight);
+        frame.add(panel);
+        frame.setVisible(true);
+        if (block) { // if specified, this will block program execution at the point where show() is called, until the
+            Object o = new Object(); // window is closed
+            Thread blocked = new Thread(()->{
+                synchronized (o) { // can only be accessed by one Thread at a time
+                    while (frame.isVisible()) {
+                        try {
+                            o.wait();// relinquish lock here: Thread stops until notify is called and lock is reacquired
+                        } catch(InterruptedException e) {
+                            return;
+                        }
+                    }
+                }
+            });
+            frame.addWindowListener(new WindowAdapter() {
+                @Override
+                public void windowClosed(java.awt.event.WindowEvent e) {
+                    synchronized (o) {
+                        o.notify(); // this resumes execution within the 'blocked' Thread, and since the frame is no
+                    } // longer visible after this, the Thread finishes execution and joins the main thread again
+                }
+            });
+            blocked.start();
+            try {
+                blocked.join();
+            } catch(InterruptedException e) {}
+        }
+    }
+    public final void show() {
+        show(true);
     }
     public static <type extends Number & Comparable<? super type>> Optional<type> getMin(final List<type> list) {
         if (list.isEmpty()) {
