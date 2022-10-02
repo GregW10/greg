@@ -64,9 +64,11 @@ public class Plot <T extends Number> extends Figure {
     private Font yTickFont;
     private Color xTickColour = Color.black;
     private Color yTickColour = Color.black;
+    private Color plotBackground = null;
     private boolean xTickThicknessSet = false;
     private boolean yTickThicknessSet = false;
     boolean secondaryAxes = false;
+    boolean secondaryAxesThicknessSet = false;
     boolean created = false;
     private boolean generated = false;
     private boolean isIntegral;
@@ -86,7 +88,7 @@ public class Plot <T extends Number> extends Figure {
             image_graphics = image.createGraphics();
             created = true;
         }
-        image_graphics.setPaint(super.figureBackground);
+        image_graphics.setPaint(plotBackground == null ? super.figureBackground : plotBackground);
         image_graphics.fillRect(0, 0, width, height);
         generated = false;
     }
@@ -121,6 +123,7 @@ public class Plot <T extends Number> extends Figure {
         return thickness / (2.0*Math.cos(Math.atan(x/y)));
     }
     private void create_axes() {
+        Pair<Integer, Integer> diff = create_ticks();
         image_graphics.setStroke(new BasicStroke(axes_thickness, BasicStroke.CAP_BUTT, BasicStroke.JOIN_BEVEL));
         image_graphics.setPaint(axes_colour);
         image_graphics.drawLine(origin_x, origin_y, end_x, origin_y);
@@ -128,12 +131,13 @@ public class Plot <T extends Number> extends Figure {
         image_graphics.fillRect(origin_x - (axes_thickness - 1)/2, origin_y - (axes_thickness - 1) / 2,
                 (axes_thickness - 1) / 2, (axes_thickness - 1) / 2);
         if (secondaryAxes) {
-            image_graphics.setStroke(new BasicStroke(axes_thickness2, BasicStroke.CAP_BUTT, BasicStroke.JOIN_BEVEL));
+            int realThickness = secondaryAxesThicknessSet ? axes_thickness2 : axes_thickness;
+            image_graphics.setStroke(new BasicStroke(realThickness, BasicStroke.CAP_BUTT, BasicStroke.JOIN_BEVEL));
             image_graphics.setPaint(axes_colour2);
-            image_graphics.drawLine(origin_x + axes_thickness/2 + 1, end_y - axes_thickness2/2 - 1, end_x, end_y -
-                    axes_thickness2/2 - 1);
-            image_graphics.drawLine(end_x - axes_thickness2/2 - 1, origin_y + axes_thickness/2 + 1, end_x -
-                    axes_thickness2/2 - 1, end_y);
+            image_graphics.drawLine(origin_x + axes_thickness/2 + 1, end_y - realThickness/2 - 1 + diff.second, end_x + diff.first,
+                    end_y - realThickness/2 - 1 + diff.second);
+            image_graphics.drawLine(end_x - realThickness/2 - 1 + diff.first, origin_y + axes_thickness/2 + 1, end_x -
+                    realThickness/2 - 1 + diff.first, end_y + diff.second);
             // image_graphics.drawLine(origin_x, end_y - 1, end_x, end_y - 1);
             // image_graphics.drawLine(end_x - 1, origin_y, end_x - 1, end_y);
             // image_graphics.fillRect(origin_x - (axes_thickness - 1)/2, end_y, (axes_thickness - 1) / 2,
@@ -148,8 +152,6 @@ public class Plot <T extends Number> extends Figure {
             //             (axes_thickness2 + 1) / 2, (axes_thickness - 1) / 2);
             // }
         }
-        create_x_ticks();
-        create_y_ticks();
     }
     // private void transformCoordinates() {
     //     for (final Pair<BigDecimal, Pair<Integer, Integer>> p : xTickPixelPositions) {
@@ -413,29 +415,6 @@ public class Plot <T extends Number> extends Figure {
         return BigDecimal.valueOf(origin_x).add(xPosition.subtract(plotmin_x).multiply(XRatio)).
                 setScale(0, RoundingMode.HALF_UP).intValue();
     }
-    private void create_x_ticks() {
-        if (num_xticks == 0) {
-            return;
-        }
-        BigDecimal ratio = getXRatio();
-        image_graphics.setStroke(new BasicStroke(xtick_thickness, BasicStroke.CAP_BUTT, BasicStroke.JOIN_BEVEL));
-        image_graphics.setPaint(axes_colour);
-        int x;
-        int y1 = origin_y + axes_thickness/2 + 1;
-        int y2 = y1 - axes_thickness - xtick_length;
-        if (xtick_positions.isEmpty() || outdated_xtick_pos) {
-            xtick_positions = getTickPositionsBase(plotmin_x, plotmax_x);
-        }
-        Pair<BigDecimal, Pair<Integer, Integer>> p;
-        for (BigDecimal pos : xtick_positions) {
-            p = new Pair<>();
-            x = getXPixelPos(pos, ratio);
-            image_graphics.drawLine(x, y1, x, y2);
-            p.first = pos;
-            p.second = new Pair<>(x, -y2 + height);
-            xTickPixelPositions.add(p);
-        }
-    }
     private BigDecimal getYRatio() {
         BigDecimal yAxesRange = BigDecimal.valueOf(end_y).subtract(BigDecimal.valueOf(origin_y));//.add(BigDecimal.ONE);
         BigDecimal range = plotmax_y.subtract(plotmin_y);
@@ -456,28 +435,56 @@ public class Plot <T extends Number> extends Figure {
         return BigDecimal.valueOf(origin_y).add(yPosition.subtract(plotmin_y).multiply(YRatio)).
                 setScale(0, RoundingMode.HALF_UP).intValue();
     }
-    private void create_y_ticks() {
-        if (num_yticks == 0) {
-            return;
+    private Pair<Integer, Integer> create_ticks() {
+        if (plots.isEmpty() || num_xticks == 0 || num_yticks == 0) {
+            return new Pair<>(0, 0);
         }
-        BigDecimal ratio = getYRatio();
-        image_graphics.setStroke(new BasicStroke(ytick_thickness, BasicStroke.CAP_BUTT, BasicStroke.JOIN_BEVEL));
-        image_graphics.setPaint(axes_colour);
-        int y;
-        int x1 = origin_x + axes_thickness/2 + 1;
-        int x2 = x1 - axes_thickness - ytick_length;
+        BigDecimal xRatio = getXRatio();
+        BigDecimal yRatio = getYRatio();
+        if (xtick_positions.isEmpty() || outdated_xtick_pos) {
+            xtick_positions = getTickPositionsBase(plotmin_x, plotmax_x);
+        }
         if (ytick_positions.isEmpty() || outdated_ytick_pos) {
             ytick_positions = getTickPositionsBase(plotmin_y, plotmax_y);
         }
-        Pair<BigDecimal, Pair<Integer, Integer>> p;
-        for (BigDecimal pos : ytick_positions) {
-            p = new Pair<>();
-            y = getYPixelPos(pos, ratio);
-            image_graphics.drawLine(x1, y, x2, y);
-            p.first = pos;
-            p.second = new Pair<>(x2, -y + height);
-            yTickPixelPositions.add(p);
+        int diff_x = getXPixelPos(xtick_positions.get(xtick_positions.size() - 1), xRatio) + axes_thickness/2 + 1-end_x;
+        if (diff_x > 0) {
+            origin_x -= diff_x/2;
+            end_x -= diff_x/2;
         }
+        int diff_y = getYPixelPos(ytick_positions.get(ytick_positions.size() - 1), yRatio) + axes_thickness/2 + 1-end_y;
+        if (diff_y > 0) {
+            origin_y -= diff_y/2;
+            end_y -= diff_y/2;
+        }
+        int x;
+        int y1 = origin_y + axes_thickness/2 + 1;
+        int y2 = y1 - axes_thickness - xtick_length;
+        int y;
+        int x1 = origin_x + axes_thickness/2 + 1;
+        int x2 = x1 - axes_thickness - ytick_length;
+        image_graphics.setPaint(axes_colour);
+        image_graphics.setStroke(new BasicStroke(xtick_thickness, BasicStroke.CAP_BUTT, BasicStroke.JOIN_BEVEL));
+        Pair<BigDecimal, Pair<Integer, Integer>> p_x;
+        for (BigDecimal pos : xtick_positions) {
+            p_x = new Pair<>();
+            x = getXPixelPos(pos, xRatio);
+            image_graphics.drawLine(x, y1, x, y2);
+            p_x.first = pos;
+            p_x.second = new Pair<>(x, -y2 + height);
+            xTickPixelPositions.add(p_x);
+        }
+        image_graphics.setStroke(new BasicStroke(ytick_thickness, BasicStroke.CAP_BUTT, BasicStroke.JOIN_BEVEL));
+        Pair<BigDecimal, Pair<Integer, Integer>> p_y;
+        for (BigDecimal pos : ytick_positions) {
+            p_y = new Pair<>();
+            y = getYPixelPos(pos, yRatio);
+            image_graphics.drawLine(x1, y, x2, y);
+            p_y.first = pos;
+            p_y.second = new Pair<>(x2, -y + height);
+            yTickPixelPositions.add(p_y);
+        }
+        return new Pair<>(diff_x < 0 ? 0 : diff_x, diff_y < 0 ? 0 : diff_y);
     }
     private int get_max_points() {
         int retval = 0;
@@ -531,15 +538,20 @@ public class Plot <T extends Number> extends Figure {
         if (max_ytick.compareTo(plotmax_y) > 0) plotmax_y = max_ytick;
     }
     private void drawPlotToFigure(boolean free_mem) {
+        if (!created) {
+            return;
+        }
+        if (super.cleared) {
+            super.createImage();
+        }
         super.fullImageGraphics.drawImage(image, (super.fullWidth - width)/2, (super.fullHeight - height)/2, null);
-        //boolean retval = ImageIO.write(image, super.imageFormat, new File(super.path));
         if (free_mem) {
             clearPlot();
         }
     }
     void set_defaults() {
-        width = super.fullWidth*8/10;
-        height = super.fullHeight*8/10;
+        width = super.fullWidth*super.plotPercentage/100;
+        height = super.fullHeight*super.plotPercentage/100;
         axes_thickness = width >= height ? height / 200 : width / 200;
         axes_thickness += axes_thickness % 2 == 0 ? 1 : 0;
         axes_thickness2 = axes_thickness;
@@ -547,8 +559,8 @@ public class Plot <T extends Number> extends Figure {
         //         axes_thickness / 2));
         xtick_thickness = ytick_thickness = axes_thickness;
         ytick_length = (xtick_length = axes_thickness*2);
-        origin_x = width / 8;
-        origin_y = height / 8;
+        origin_x = width / 12;
+        origin_y = height / 12;
         end_x = width - origin_x;
         end_y = height - origin_y;
         yTickFont = xTickFont = new Font("SANSSERIF", Font.PLAIN, width >= height ? height / 50 : width / 50);
@@ -562,7 +574,6 @@ public class Plot <T extends Number> extends Figure {
         isBigD = val.getClass() == BigDecimal.class;
         typeSet = true;
     }
-
     private void flipImage() {
         // image_graphics.scale(1, -1);
         // image_graphics.translate(0, -height);
@@ -687,8 +698,7 @@ public class Plot <T extends Number> extends Figure {
         }
         return true;
     }
-
-    public final boolean addYPadding(int number_of_pixels) { // if number is negative, plot is stretched in x-direction
+    public final boolean addYPadding(int number_of_pixels) { // if number is negative, plot is stretched in y-direction
         if (number_of_pixels == 0) {
             return false;
         }
@@ -713,7 +723,14 @@ public class Plot <T extends Number> extends Figure {
         }
         return true;
     }
-
+    @Override
+    public final boolean addPlotPadding(int pixels) {
+        super.plotPadding += pixels; // not setting the padding, but adding to it every time this method is called
+        if (super.plotPadding < 0) {
+            super.plotPadding = 0; // must never be less than zero: Figure title must not overlap with Plot image
+        }
+        return true;
+    }
     public final boolean displaceAxesHorizontally(int number_of_pixels) { // positive for moving right
         if (number_of_pixels > width - end_x) {
             return false;
@@ -722,7 +739,6 @@ public class Plot <T extends Number> extends Figure {
         end_x += number_of_pixels;
         return true;
     }
-
     public final boolean displaceAxesVertically(int number_of_pixels) { // positive for moving up
         if (number_of_pixels > height - end_y) {
             return false;
@@ -731,7 +747,6 @@ public class Plot <T extends Number> extends Figure {
         end_y += number_of_pixels;
         return true;
     }
-
     public final void displayData() {
         if (plots.isEmpty()) {
             System.out.println("No data!");
@@ -739,23 +754,28 @@ public class Plot <T extends Number> extends Figure {
         }
         int num = 0;
         int count;
+        String dataset;
+        int len;
         for (final ArrayList<Pair<BigDecimal, BigDecimal>> plot : plots) {
-            System.out.println("Dataset " + ++num);
+            dataset = "Dataset " + ++num;
+            System.out.println(dataset);
+            System.out.print("--------");
+            len = dataset.length() - 8;
+            for (int i = 0; i < len; ++i)
+                System.out.print('-');
+            System.out.print('\n');
             count = 0;
             for (final Pair<BigDecimal, BigDecimal> pair : plot) {
                 System.out.println("Point " + ++count + " -> x: " + pair.first + ", y: " + pair.second);
             }
             System.out.println();
         }
-        System.out.println();
     }
-
     public final void clearData() {
         plots.clear();
         outdated_xtick_pos = true;
         outdated_ytick_pos = true;
     }
-
     public final void clearPlot() {
         if (created) {
             image_graphics.dispose();
@@ -766,7 +786,6 @@ public class Plot <T extends Number> extends Figure {
             generated = false;
         }
     }
-
     public final void clearAll() {
         clearData();
         super.clearFigure();
@@ -782,7 +801,6 @@ public class Plot <T extends Number> extends Figure {
     public int getImageType() {
         return super.IMAGE_TYPE;
     }
-
     public boolean setImageType(int image_type) {
         if (!(image_type > 0 && image_type <= 12)) {
             return false;
@@ -790,11 +808,12 @@ public class Plot <T extends Number> extends Figure {
         super.IMAGE_TYPE = image_type;
         return true;
     }
-
+    public final void setPlotBackgroundColor(Color col) {
+        plotBackground = col; // OK if null
+    }
     public final int getAxesThickness() {
         return axes_thickness;
     }
-
     public final boolean setAxesThickness(int thickness_in_pixels) { // in terms of pixels
         if (thickness_in_pixels > height/20 || thickness_in_pixels > width/20) {
             return false;
@@ -808,7 +827,6 @@ public class Plot <T extends Number> extends Figure {
         }
         return true;
     }
-
     public final boolean setAxesColor(Color col) {
         if (super.figureBackground.equals(col)) {
             return false;
@@ -816,23 +834,18 @@ public class Plot <T extends Number> extends Figure {
         axes_colour = col;
         return true;
     }
-
     public final Color getAxesColor() {
         return axes_colour;
     }
-
     public final int getSecondaryAxesThickness() {
         return axes_thickness2;
     }
-
     public final int getXTickLabelFontSize() {
         return xTickFont.getSize();
     }
-
     public final void setXTickLabelFontSize(int size) {
         xTickFont = new Font("SANSSERIF", Font.PLAIN, size);
     }
-
     public final boolean setXTickLabelFont(Font font) {
         if (font == null) {
             return false;
@@ -840,15 +853,12 @@ public class Plot <T extends Number> extends Figure {
         xTickFont = font;
         return true;
     }
-
     public final int getYTickLabelFontSize() {
         return yTickFont.getSize();
     }
-
     public final void setYTickLabelFontSize(int size) {
         yTickFont = new Font("SANSSERIF", Font.PLAIN, size);
     }
-
     public final boolean setYTickLabelFont(Font font) {
         if (font == null) {
             return false;
@@ -856,7 +866,6 @@ public class Plot <T extends Number> extends Figure {
         yTickFont = font;
         return true;
     }
-
     public final boolean setXTickLabelColor(Color color) {
         if (color == null) {
             return false;
@@ -864,7 +873,6 @@ public class Plot <T extends Number> extends Figure {
         xTickColour = color;
         return true;
     }
-
     public final boolean setYTickLabelColor(Color color) {
         if (color == null) {
             return false;
@@ -872,15 +880,12 @@ public class Plot <T extends Number> extends Figure {
         yTickColour = color;
         return true;
     }
-
     public final Color getXTickLabelColor() {
         return xTickColour;
     }
-
     public final Color getYTickLabelColor() {
         return yTickColour;
     }
-
     // public final boolean setNumberOfXTicks(int number_of_xticks) {
     //     if (number_of_xticks*xtick_thickness >= end_x - origin_x) {
     //         return false;
@@ -896,7 +901,6 @@ public class Plot <T extends Number> extends Figure {
     //     num_yticks = number_of_yticks;
     //     return true;
     // }
-
     public final boolean setXTickThickness(int thickness) {
         if (thickness > axes_thickness) {
             return false;
@@ -908,7 +912,6 @@ public class Plot <T extends Number> extends Figure {
         xTickThicknessSet = true;
         return true;
     }
-
     public final boolean setYTickThickness(int thickness) {
         if (thickness > axes_thickness) {
             return false;
@@ -920,7 +923,6 @@ public class Plot <T extends Number> extends Figure {
         yTickThicknessSet = true;
         return true;
     }
-
     public final boolean setXTickLength(int length) {
         if (length > 6*axes_thickness) {
             return false;
@@ -928,7 +930,6 @@ public class Plot <T extends Number> extends Figure {
         xtick_length = length;
         return true;
     }
-
     public final boolean setYTickLength(int length) {
         if (length > 6*axes_thickness) {
             return false;
@@ -936,7 +937,6 @@ public class Plot <T extends Number> extends Figure {
         ytick_length = length;
         return true;
     }
-
     public final boolean setXTickPositions(final List<T> positions) { // all ticks must always be visible, so the
         if (plots.isEmpty()) {                                        // xlims are expanded if necessary
             return false;
@@ -969,11 +969,9 @@ public class Plot <T extends Number> extends Figure {
         xTickTPositions = positions;
         return true;
     }
-
     public final boolean setXTickPositions(final T [] positions) {
         return setXTickPositions(List.of(positions));
     }
-
     public final boolean setYTickPositions(final List<T> positions) { // all ticks must always be visible, so the
         if (plots.isEmpty()) {                                        // ylims are expanded if necessary
             return false;
@@ -1006,11 +1004,9 @@ public class Plot <T extends Number> extends Figure {
         yTickTPositions = positions;
         return true;
     }
-
     public final boolean setYTickPositions(final T [] positions) {
         return setYTickPositions(List.of(positions));
     }
-
     public final boolean setXLimits(T lower_bound, T upper_bound) { // in terms of T units // if T not Int., ass. to be FP
         BigDecimal tempMin;
         BigDecimal tempMax;
@@ -1040,7 +1036,6 @@ public class Plot <T extends Number> extends Figure {
         }
         return true;
     }
-
     public final boolean setYLimits(T lower_bound, T upper_bound) { // in terms of T units // if T not Int., ass. to be FP
         BigDecimal tempMin;
         BigDecimal tempMax;
@@ -1088,6 +1083,7 @@ public class Plot <T extends Number> extends Figure {
         }
         axes_thickness2 = thickness_in_pixels % 2 == 0 ? thickness_in_pixels + 1 : thickness_in_pixels;
         secondaryAxes = true;
+        secondaryAxesThicknessSet = true;
         return true;
     }
     public final boolean addSecondaryAxes(int thickness_in_pixels, Color color) {
@@ -1155,7 +1151,7 @@ public class Plot <T extends Number> extends Figure {
         labels.add(label);
         return true;
     }
-    public boolean generatePlot(boolean freePlot) {
+    public final synchronized boolean generatePlot(boolean freePlot) {
         if (plots.isEmpty()) {
             return false;
         }
@@ -1174,23 +1170,34 @@ public class Plot <T extends Number> extends Figure {
         drawLabels(); // Labels will be drawn on top of annotations, in case of overlap
         drawPlotToFigure(freePlot);
         generated = true;
+        super.generateFigure();
         return true;
-    }
-    public final boolean writeImage(boolean free_image) throws IOException, CharacterDoesNotFitException {
+    } // the below method writes JUST the image within Plot to the file
+    public final synchronized boolean writePlot(boolean free_plot) throws IOException, CharacterDoesNotFitException {
         if (!generated) {
             return false;
         }
-        drawPlotToFigure(image != null && free_image);
-        super.writeFigure(free_image);
+        javax.imageio.ImageIO.write(this.image, super.imageFormat, new java.io.File(super.path));
+        if (free_plot)
+            clearPlot();
         return true;
-    }
-    public final boolean generatePlotAndWrite(boolean free_image) throws IOException, CharacterDoesNotFitException {
-        if (!generatePlot(image != null && free_image)) {
+    } // the below method generates the Plot image, copies it to the Figure image, and writes the Figure image to file
+    public final synchronized boolean generatePlotAndWrite(boolean free_images) throws IOException,
+            CharacterDoesNotFitException {
+        if (!generatePlot(free_images)) {
             return false;
         }
-        return writeImage(free_image);
+        super.write(free_images);
+        return true;
     }
-    public final void show(boolean block) { // generates (if needed) the plot and shows it, without writing to file
+    public final synchronized boolean generatePlotAndWritePlot(boolean free_plot) throws IOException,
+            CharacterDoesNotFitException {
+        if (!generatePlot(free_plot)) {
+            return false;
+        }
+        return writePlot(free_plot);
+    }
+    public final synchronized void show(boolean block) { // generates (if needed) the plot and shows it, without writing
         if (!generated) {
             this.generatePlot(false);
         }
@@ -1247,7 +1254,7 @@ public class Plot <T extends Number> extends Figure {
             } catch(InterruptedException e) {}
         }
     }
-    public final void show() {
+    public final synchronized void show() {
         show(true);
     }
     public static <type extends Number & Comparable<? super type>> Optional<type> getMin(final List<type> list) {
@@ -1273,50 +1280,5 @@ public class Plot <T extends Number> extends Figure {
             }
         }
         return Optional.of(max);
-    }
-    public final static class Colors {
-        public final static Color black = new Color(0, 0, 0);
-        public final static Color white = new Color(255, 255, 255);
-        public final static Color blue = new Color(0, 0, 255);
-        public final static Color green = new Color(0, 255, 0);
-        public final static Color red = new Color(255, 0, 0);
-        public final static Color pink = new Color(255, 105, 180);
-        public final static Color cerise = new Color(222, 49, 99);
-        public final static Color fuchsia = new Color(255, 0, 255);
-        public final static Color neonPink = new Color(255, 16, 240);
-        public final static Color pinkOrange = new Color(248, 152, 128);
-        public final static Color purple = new Color(128, 0, 128);
-        public final static Color salmon = new Color(250, 128, 114);
-        public final static Color watermelonPink = new Color(227, 115, 131);
-        public final static Color orange = new Color(255, 165, 0);
-        public final static Color gold = new Color(255, 215, 0);
-        public final static Color yellow = new Color(255, 255, 0);
-        public final static Color lavender = new Color(230, 230, 250);
-        public final static Color indigo = new Color(75, 0, 130);
-        public final static Color violet = new Color(238, 130, 238);
-        public final static Color limeGreen = new Color(50, 205, 50);
-        public final static Color forestGreen = new Color(34, 139, 34);
-        public final static Color darkGreen = new Color(0, 100, 0);
-        public final static Color aqua = new Color(0, 255, 255);
-        public final static Color skyBlue = new Color(135, 206, 235);
-        public final static Color royalBlue = new Color(65, 105, 225);
-        public final static Color navy = new Color(0, 0, 128);
-        public final static Color wheat = new Color(245, 222, 179);
-        public final static Color tan = new Color(210, 180, 140);
-        public final static Color rosyBrown = new Color(188, 143, 143);
-        public final static Color peru = new Color(205, 133, 63);
-        public final static Color chocolate = new Color(210, 105, 30);
-        public final static Color brown = new Color(165, 42, 42);
-        public final static Color maroon = new Color(128, 0, 0);
-        public final static Color snow = new Color(255, 250, 250);
-        public final static Color honeyDew = new Color(240, 255, 240);
-        public final static Color azure = new Color(240, 255, 255);
-        public final static Color ghostWhite = new Color(248, 248, 255);
-        public final static Color beige = new Color(245, 245, 220);
-        public final static Color ivory = new Color(255, 255, 240);
-        public final static Color gainsboro = new Color(220, 220, 220);
-        public final static Color silver = new Color(192, 192, 192);
-        public final static Color gray = new Color(128, 128, 128);
-        public final static Color slateGray = new Color(112, 128, 144);
     }
 };
