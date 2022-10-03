@@ -43,77 +43,83 @@ public class Label extends TextBounds {
         backgroundColor = new Color(other.backgroundColor.getRGB());
         rotation = other.rotation;
     }
-    public Label(Figure fig, String text, int xPos, int yPos, int width, int justification) throws
-            CharacterDoesNotFitException {
-        super(fig, text, xPos, yPos, width, justification);
+    public Label(Figure fig, String text, int xPos, int yPos, int width, int justification,
+                 boolean pushLongWordToNextLine) throws CharacterDoesNotFitException {
+        super(fig, text, xPos, yPos, width, justification, pushLongWordToNextLine);
     }
-    public Label(Figure fig, String text, Font font, int xPos, int yPos, int width, int justification) throws
-            CharacterDoesNotFitException {
-        super(fig, text, font, xPos, yPos, width, justification);
+    public Label(Figure fig, String text, Font font, int xPos, int yPos, int width, int justification,
+                 boolean pushLongWordToNextLine) throws CharacterDoesNotFitException {
+        super(fig, text, font, xPos, yPos, width, justification, pushLongWordToNextLine);
     }
-    public Label(Graphics2D graphics, String text, int xPos, int yPos, int width, int justification) throws
-            CharacterDoesNotFitException {
-        super(graphics, text, xPos, yPos, width, justification);
+    public Label(Graphics2D graphics, String text, int xPos, int yPos, int width, int justification,
+                 boolean pushLongWordToNextLine) throws CharacterDoesNotFitException {
+        super(graphics, text, xPos, yPos, width, justification, pushLongWordToNextLine);
     }
-    public Label(Graphics2D graphics, String text, Font font, int xPos, int yPos, int width, int justification) throws
-            CharacterDoesNotFitException {
-        super(graphics, text, font, xPos, yPos, width, justification);
+    public Label(Graphics2D graphics, String text, Font font, int xPos, int yPos, int width, int justification,
+                 boolean pushLongWordToNextLine) throws CharacterDoesNotFitException {
+        super(graphics, text, font, xPos, yPos, width, justification, pushLongWordToNextLine);
     }
-    public Label(String text, int xPos, int yPos, int width, int justification) throws
+    public Label(String text, int xPos, int yPos, int width, int justification, boolean pushLongWordToNextLine) throws
             CharacterDoesNotFitException {
-        super(text, null, xPos, yPos, width, justification);
+        super(text, null, xPos, yPos, width, justification, pushLongWordToNextLine);
     }
-    public Label(String text, Font font, int xPos, int yPos, int width, int justification) throws
+    public Label(String text, Font font, int xPos, int yPos, int width, int justification,
+                 boolean pushLongWordToNextLine) throws CharacterDoesNotFitException {
+        super(text, font, xPos, yPos, width, justification, pushLongWordToNextLine);
+    }
+    protected Label(String text, Font font, int justification, boolean pushLongWordToNextLine) throws
             CharacterDoesNotFitException {
-        super(text, font, xPos, yPos, width, justification);
-    }
-    protected Label(String text, Font font, int justification) throws CharacterDoesNotFitException {
-        super(text, font, justification);
+        super(text, font, justification, pushLongWordToNextLine);
     }
     public Label(Figure fig, String text, Color bgColor, Color txtColor, int xPos, int yPos, int width,
-                 double rotationInRadians, int justification) throws CharacterDoesNotFitException {
-        super(fig, text, xPos, yPos, width, justification);
+                 double rotationInRadians, int justification, boolean pushLongWordToNextLine) throws
+            CharacterDoesNotFitException {
+        super(fig, text, xPos, yPos, width, justification, pushLongWordToNextLine);
         this.textColor = txtColor == null ? Color.black : txtColor;
         this.backgroundColor = bgColor == null ? fig.fullImageGraphics.getColor() : bgColor;
         this.rotation = rotationInRadians;
     }
     public Label(Figure fig, String text, Font font, Color bgColor, Color txtColor, int xPos, int yPos, int width,
-                 double rotationInRadians, int justification) throws CharacterDoesNotFitException {
-        super(fig, text, font, xPos, yPos, width, justification);
+                 double rotationInRadians, int justification, boolean pushLongWordToNextLine) throws
+            CharacterDoesNotFitException {
+        super(fig, text, font, xPos, yPos, width, justification, pushLongWordToNextLine);
         this.textColor = txtColor == null ? Color.black : txtColor;
         this.backgroundColor = bgColor == null ? fig.fullImageGraphics.getColor() : bgColor;
         this.rotation = rotationInRadians;
     }
     public Label(Graphics2D graphics, String text, Color bgColor, Color txtColor, int xPos, int yPos, int width,
-                 double rotationInRadians, int justification) throws CharacterDoesNotFitException {
-        super(graphics, text, xPos, yPos, width, justification);
+                 double rotationInRadians, int justification, boolean pushLongWordToNextLine) throws
+            CharacterDoesNotFitException {
+        super(graphics, text, xPos, yPos, width, justification, pushLongWordToNextLine);
         this.textColor = txtColor == null ? Color.black : txtColor;
         this.backgroundColor = bgColor == null ? graphics.getColor() : bgColor;
         this.rotation = rotationInRadians;
     }
     public Label(Graphics2D graphics, String text, Font font, Color bgColor, Color txtColor, int xPos, int yPos,
-                 int width, double rotationInRadians, int justification) throws CharacterDoesNotFitException {
-        super(graphics, text, font, xPos, yPos, width, justification);
+                 int width, double rotationInRadians, int justification, boolean pushLongWordToNextLine) throws
+            CharacterDoesNotFitException {
+        super(graphics, text, font, xPos, yPos, width, justification, pushLongWordToNextLine);
         this.textColor = txtColor == null ? Color.black : txtColor;
         this.backgroundColor = bgColor == null ? graphics.getColor() : bgColor;
         this.rotation = rotationInRadians;
     }
     public Label(String text, Color bgColor, Color txtColor, int xPos, int yPos, int width,
-                 double rotationInRadians, int justification) {
-        super(text, null, xPos, yPos, width, justification);
+                 double rotationInRadians, int justification, boolean pushLongWordToNextLine) {
+        super(text, null, xPos, yPos, width, justification, pushLongWordToNextLine);
         this.textColor = txtColor == null ? Color.black : txtColor;
         this.backgroundColor = bgColor == null ? Color.white : bgColor;
         this.rotation = rotationInRadians;
     }
     public Label(String text, Font font, Color bgColor, Color txtColor, int xPos, int yPos,
-                 int width, double rotationInRadians, int justification) {
-        super(text, font, xPos, yPos, width, justification);
+                 int width, double rotationInRadians, int justification, boolean pushLongWordToNextLine) {
+        super(text, font, xPos, yPos, width, justification, pushLongWordToNextLine);
         this.textColor = txtColor == null ? Color.black : txtColor;
         this.backgroundColor = bgColor == null ? Color.white : bgColor;
         this.rotation = rotationInRadians;
     }
-    protected Label(String text, Font font, Color bgColor, Color txtColor, double rotationInRadians, int justification){
-        super(text, font, justification);
+    protected Label(String text, Font font, Color bgColor, Color txtColor, double rotationInRadians, int justification,
+                    boolean pushLongWordToNextLine) {
+        super(text, font, justification, pushLongWordToNextLine);
         this.textColor = txtColor == null ? Color.black : txtColor;
         this.backgroundColor = bgColor == null ? Color.white : bgColor;
         this.rotation = rotationInRadians;
@@ -174,10 +180,10 @@ public class Label extends TextBounds {
         gr.setPaint(Color.white);
         gr.fillRect(0, 0, width, height);
         Label lbl2 = new Label(gr, "The man went on a very long walk through the woods. He was a long way from home. He would have preferred Chinese food.",
-                new Font("sansserif", Font.PLAIN, height/40), Color.blue, Color.red, width/2, height/2, 500, 0, 2);
+                new Font("sansserif", Font.PLAIN, height/40), Color.blue, Color.red, width/2, height/2, 500, 0, 2, true);
         lbl2.draw();
         Label lbl = new Label(gr, "The man went on a very long walk through the woods. He was a long way from home. He would have preferred Chinese food.",
-                    new Font("sansserif", Font.PLAIN, height/40), Color.pink, Color.yellow, width/2, height/2, 500, -2*Math.PI/1.5, 2);
+                    new Font("sansserif", Font.PLAIN, height/40), Color.pink, Color.yellow, width/2, height/2, 500, -2*Math.PI/1.5, 2, false);
         lbl.draw();
         ImageIO.write(img, "bmp", new File(path));
         Desktop.getDesktop().open(new File(path));

@@ -29,10 +29,12 @@ public class TextBounds {
     public static final int CENTER_JUSTIFY = 2;
     public static final int RIGHT_JUSTIFY = 4;
     private final int justification;
+    private boolean pushToNextLine = false;
     private final boolean empty;
     protected boolean calculated = false;
     protected boolean locked = false; // only true for PlotLabel objects
-    protected TextBounds(String text, Font font, int textJustification) { // ctor for PlotLabel objects
+    protected TextBounds(String text, Font font, int textJustification,
+                         boolean pushLongWordToNextLine) { // ctor for PlotLabel objects
         if (text == null) {
             throw new NullPointerException();
         }
@@ -42,6 +44,7 @@ public class TextBounds {
         f = font;
         txt = text;
         justification = textJustification;
+        this.pushToNextLine = pushLongWordToNextLine;
         if (text.isEmpty()) {
             empty = true;
             return;
@@ -49,7 +52,7 @@ public class TextBounds {
         empty = false;
         locked = true;
     }
-    public TextBounds(String text, Font font, int xPosition, int yPosition, int width, int textJustification) {
+    public TextBounds(String text, Font font, int xPosition, int yPosition, int width, int textJustification, boolean pushLongWordToNextLine) {
         if (text == null) {
             throw new NullPointerException();
         }
@@ -62,6 +65,7 @@ public class TextBounds {
         rect.y = yPosition;
         rect.width = width;
         justification = textJustification;
+        this.pushToNextLine = pushLongWordToNextLine;
         if (text.isEmpty()) {
             empty = true;
             return;
@@ -69,7 +73,7 @@ public class TextBounds {
         empty = false;
     }
     public TextBounds(Graphics2D graphics, String text, Font font, int xPosition, int yPosition, int width,
-               int textJustification) throws CharacterDoesNotFitException { // creates object with the specified font
+               int textJustification, boolean pushLongWordToNextLine) throws CharacterDoesNotFitException {
         if (graphics == null || text == null || font == null) {
             throw new NullPointerException();
         }
@@ -88,6 +92,7 @@ public class TextBounds {
         justification = textJustification;
         rect.x = xPosition;
         rect.y = yPosition;
+        this.pushToNextLine = pushLongWordToNextLine;
         if (text.length() == 0) {
             rect.height = 0;
             empty = true;
@@ -100,21 +105,22 @@ public class TextBounds {
         graphics.setFont(originalFont);
         calculated = true;
     }
-    public TextBounds(Graphics2D graphics, String text, int xPosition, int yPosition, int width,
-               int textJustification) throws CharacterDoesNotFitException { // creates object with graphics' font
-        this(graphics, text, graphics.getFont(), xPosition, yPosition, width, textJustification);
+    public TextBounds(Graphics2D graphics, String text, int xPosition, int yPosition, int width,  // creates object with
+               int textJustification, boolean pushLongWordToNextLine) throws CharacterDoesNotFitException { // graphics'
+        this(graphics, text, graphics.getFont(), xPosition, yPosition, width, textJustification,            // font
+                pushLongWordToNextLine);
     }
-    public TextBounds(Graphics2D graphics, String text, int width, int textJustification)
-            throws CharacterDoesNotFitException {
-        this(graphics, text, 0, 0, width, textJustification); // will throw NPE if graphics is null
+    public TextBounds(Graphics2D graphics, String text, int width, int textJustification,
+                      boolean pushLongWordToNextLine) throws CharacterDoesNotFitException {
+        this(graphics, text, 0, 0, width, textJustification, pushLongWordToNextLine); // will throw NPE if null graphics
     }
     public TextBounds(Figure fig, String text, Font font, int xPosition, int yPosition, int width,
-               int textJustification) throws CharacterDoesNotFitException {
-        this(fig.fullImageGraphics, text, font, xPosition, yPosition, width, textJustification);
+               int textJustification, boolean pushLongWordToNextLine) throws CharacterDoesNotFitException {
+        this(fig.fullImageGraphics, text, font, xPosition, yPosition, width, textJustification, pushLongWordToNextLine);
     }
-    public TextBounds(Figure fig, String text, int xPosition, int yPosition, int width, int textJustification) throws
-            CharacterDoesNotFitException {
-        this(fig.fullImageGraphics, text, xPosition, yPosition, width, textJustification);
+    public TextBounds(Figure fig, String text, int xPosition, int yPosition, int width, int textJustification,
+                      boolean pushLongWordToNextLine) throws CharacterDoesNotFitException {
+        this(fig.fullImageGraphics, text, xPosition, yPosition, width, textJustification, pushLongWordToNextLine);
     }
     public TextBounds(TextBounds other) {
         g = other.g; // only choice
@@ -131,6 +137,7 @@ public class TextBounds {
         fontHeight = fm.getHeight();
         fontAscent = fm.getAscent();
         justification = other.justification;
+        this.pushToNextLine = other.pushToNextLine;
         empty = other.empty;
         this.calculated = other.calculated;
         this.locked = other.locked;
@@ -139,7 +146,7 @@ public class TextBounds {
         locked = false;
     }
     // below method forces TextBounds obj. to recalculate everything for new Graphics2D and Font objects
-    boolean calculate(Graphics2D graphics, Font newFont) throws CharacterDoesNotFitException {
+    public boolean calculate(Graphics2D graphics, Font newFont) throws CharacterDoesNotFitException {
         if (empty || locked) {
             return false;
         }
@@ -276,10 +283,16 @@ public class TextBounds {
                     hasSpace = false;
                 }
                 if (width > rect.width) {
-                    if (!lines.isEmpty()) {
+                    //if (!lines.isEmpty()) {
+                    if (!line.isEmpty() && pushToNextLine) {
                         lines.add(new Trio<>(line.toString(), getProperRectangle(line.toString())));
                     }
-                    splitWord(word);
+                    if (!pushToNextLine && !line.isEmpty()) {
+                        splitWord(line + " " + word);
+                    }
+                    else {
+                        splitWord(word);
+                    }
                     line.setLength(0);
                     line.append(lines.get(lines.size() - 1).first);
                     lines.remove(lines.size() - 1);
@@ -347,7 +360,7 @@ public class TextBounds {
     public static void main(String [] args) throws IOException, CharacterDoesNotFitException {
         BufferedImage img = new BufferedImage(width, height, BufferedImage.TYPE_3BYTE_BGR);
         Graphics2D g = img.createGraphics();
-        String test = "The quick brown fox jumped over the lazy dogs.";
+        String test = "The quickbrown fox jumped over the lazy dogs.";
         g.setFont(new Font("sansserif", Font.PLAIN, 100));
         FontMetrics fm = g.getFontMetrics();
         int fontHeight = fm.getHeight();
@@ -358,7 +371,7 @@ public class TextBounds {
         g.fillRect(xPos, yPos + height/10, g.getFontMetrics().stringWidth(test), fontHeight);
         g.setPaint(Color.green);
         g.fillRect(xPos, yPos + height/10, testWidth, g.getFontMetrics().getHeight());
-        TextBounds tb = new TextBounds(g, test, xPos, yPos - fm.getAscent(), testWidth, TextBounds.RIGHT_JUSTIFY);
+        TextBounds tb = new TextBounds(g, test, xPos, yPos - fm.getAscent(), testWidth, TextBounds.RIGHT_JUSTIFY, true);
         System.out.println("Words: " + tb.getWords());
         System.out.println("Lines: " + tb.getLines());
         for (final Trio<String, Rectangle, Point> line : tb.getLines()) {

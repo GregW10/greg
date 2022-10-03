@@ -4,6 +4,7 @@ import java.awt.image.BufferedImage;
 import java.awt.Color;
 import java.awt.Font;
 import java.awt.Graphics2D;
+import java.awt.Rectangle;
 import javax.imageio.ImageIO;
 import java.util.ArrayList;
 import java.io.File;
@@ -24,24 +25,40 @@ public abstract class Figure {
     protected int IMAGE_TYPE = BufferedImage.TYPE_3BYTE_BGR;
     protected BufferedImage fullImage;
     protected Graphics2D fullImageGraphics;
-    private Font xAxesLabelFont;
-    private Font yAxesLabelFont;
+    private Font xAxisLabelFont;
+    private Font yAxisLabelFont;
     private Font titleFont;
     protected Font annotationFont;
     private String titleText = null;
-    private String xAxesLabelText = null;
-    private String yAxesLabelText = null;
-    private Color xAxesLabelColour = Color.black;
-    private Color yAxesLabelColour = Color.black;
+    private String xAxisLabelText = null;
+    private String yAxisLabelText = null;
     private Color titleColour = Color.black;
+    private Color xAxisLabelColour = Color.black;
+    private Color yAxisLabelColour = Color.black;
+    private Color titleBgColour;
+    private Color xAxisLabelBgColour;
+    private Color yAxisLabelBgColour;
+    private boolean titleBgColourSet = false;
+    private boolean xAxisLabelBgColourSet = false;
+    private boolean yAxisLabelBgColourSet = false;
     protected Color annotationColour = Color.black;
     private int maxTitleWidth;
+    private int maxXAxisLabelWidth;
+    private int maxYAxisLabelWidth;
     private boolean titleWidthSet = false;
+    private boolean xAxisLabelWidthSet = false;
+    private boolean yAxisLabelWidthSet = false;
+    protected int titleOffset = 0;
+    protected int xAxisLabelOffset = 0;
+    protected int yAxisLabelOffset = 0;
+    private boolean centerTitle = false;
+    private boolean centerXAxisLabel = false;
+    private boolean centerYAxisLabel = false;
     private Pair<Integer, Integer> titleCoords;
     private final ArrayList<Trio<Color, String, Pair<Integer, Integer>>> annotations = new ArrayList<>();
     private final ArrayList<Label> laterLabels = new ArrayList<>();
     protected int plotPercentage = 72; // percentage of Figure width and height that Plot will take up
-    protected int plotPadding = 0;
+    private final Rectangle plotRect = new Rectangle(); // to be calculated at final Figure generation
     protected boolean cleared = true; // there is no image initially
     private boolean generated = false; // same
     protected void createImage() {
@@ -52,23 +69,100 @@ public abstract class Figure {
         cleared = false;
         generated = false; // the image exists, but has nothing on it, so has NOT been generated yet
     }
-    private void drawTitle() throws CharacterDoesNotFitException {
+    private void setPlotRect() {
+        plotRect.width = this.fullWidth*this.plotPercentage/100;
+        plotRect.height = this.fullHeight*this.plotPercentage/100;
+        plotRect.x = (this.fullWidth - plotRect.width)/2;
+        plotRect.y = (this.fullHeight - plotRect.height)/2;
+    }
+    private void drawTitle() throws CharacterDoesNotFitException, OutOfImageBoundsException {
         if (titleText == null) { // no title if this is the case
             return;
         }
-        int plotWidth = this.fullWidth*this.plotPercentage/100;
-        int plotHeight = this.fullHeight*this.plotPercentage/100;
-        int topOfPlot = (this.fullHeight - plotHeight)/2;
-        int presentWidth = titleWidthSet ? maxTitleWidth : plotWidth;
+        int presentWidth = titleWidthSet ? maxTitleWidth : plotRect.width;
         TextBounds tb = new TextBounds(this.fullImageGraphics, titleText, titleFont, 0, 0, presentWidth,
-                TextBounds.CENTER_JUSTIFY);
+                TextBounds.CENTER_JUSTIFY, false);
         if (tb.lines.size() == 1) {
             int w = tb.lines.get(0).second.width;
             presentWidth = w + w/20;
+            if (presentWidth > plotRect.width) {
+                presentWidth = plotRect.width;
+            }
         }
-        (new Label(this.fullImageGraphics, titleText, titleFont, Color.blue, titleColour, this.fullWidth/2 -
-                presentWidth/2, topOfPlot - tb.rect.height - this.plotPadding, presentWidth, 0d,
-                Label.CENTER_JUSTIFY)).draw();
+        int y;
+        if (centerTitle) {
+            y = plotRect.y/2 - tb.rect.height/2;
+        }
+        else {
+            y = plotRect.y - tb.rect.height - titleOffset;
+        }
+        if (y < 0) { // if true, title would not fit on image
+            throw new OutOfImageBoundsException("With the current font settings and string-length, the title is " +
+                    "not able to fully fit on this Figure object's image.");
+        }
+        (new Label(this.fullImageGraphics, titleText, titleFont, titleBgColourSet ? titleBgColour :
+                   this.figureBackground, titleColour, this.fullWidth/2 - presentWidth/2, y, presentWidth, 0d,
+                Label.CENTER_JUSTIFY, false)).draw();
+    }
+    private void drawXAxisLabel() throws CharacterDoesNotFitException, OutOfImageBoundsException {
+        if (xAxisLabelText == null) {
+            return;
+        }
+        int bottomOfPlot = this.fullHeight - plotRect.y - ((this.fullHeight - plotRect.height) % 2);
+        int presentWidth = xAxisLabelWidthSet ? maxXAxisLabelWidth : plotRect.width;
+        TextBounds tb = new TextBounds(this.fullImageGraphics, xAxisLabelText, xAxisLabelFont, 0, 0, presentWidth,
+                TextBounds.CENTER_JUSTIFY, false);
+        if (tb.lines.size() == 1) {
+            int w = tb.lines.get(0).second.width;
+            presentWidth = w + w/20;
+            if (presentWidth > plotRect.width) {
+                presentWidth = plotRect.width;
+            }
+        }
+        int y;
+        if (centerXAxisLabel) {
+            y = bottomOfPlot + plotRect.y/2 - tb.rect.height/2;
+        }
+        else {
+            y = bottomOfPlot + xAxisLabelOffset;
+        }
+        if (y < bottomOfPlot || y + tb.rect.height > this.fullHeight) { // if true, x-axis label would not fit on image
+            throw new OutOfImageBoundsException("With the current font settings and string-length, the x-axis " +
+                                                "label is not able to fully fit on this Figure object's image.");
+        }
+        (new Label(this.fullImageGraphics, xAxisLabelText, xAxisLabelFont, xAxisLabelBgColourSet ? xAxisLabelBgColour :
+                   this.figureBackground, xAxisLabelColour, this.fullWidth/2 - presentWidth/2, y, presentWidth, 0d,
+                Label.CENTER_JUSTIFY, false)).draw();
+    }
+    private void drawYAxisLabel() throws CharacterDoesNotFitException, OutOfImageBoundsException {
+        if (yAxisLabelText == null) {
+            return;
+        }
+        int leftOfPlot = plotRect.x;
+        int presentWidth = yAxisLabelWidthSet ? maxYAxisLabelWidth : plotRect.height;
+        TextBounds tb = new TextBounds(this.fullImageGraphics, yAxisLabelText, yAxisLabelFont, 0, 0, presentWidth,
+                TextBounds.CENTER_JUSTIFY, false);
+        if (tb.lines.size() == 1) {
+            int w = tb.lines.get(0).second.width;
+            presentWidth = w + w/20;
+            if (presentWidth > plotRect.height) {
+                presentWidth = plotRect.height;
+            }
+        }
+        int x;
+        if (centerYAxisLabel) {
+            x = leftOfPlot/2 - tb.rect.height/2;
+        }
+        else {
+            x = leftOfPlot - tb.rect.height - yAxisLabelOffset;
+        }
+        if (x < 0) { // if true, y-axis label would not fit on image
+            throw new OutOfImageBoundsException("With the current font settings and string-length, the y-axis " +
+                                                "label is not able to fully fit on this Figure object's image.");
+        }
+        (new Label(this.fullImageGraphics, yAxisLabelText, yAxisLabelFont, yAxisLabelBgColourSet ? yAxisLabelBgColour :
+                   this.figureBackground, yAxisLabelColour, x, this.fullHeight/2 + presentWidth/2 + (presentWidth % 2),
+                presentWidth, Math.PI/2, Label.CENTER_JUSTIFY, false)).draw();
     }
     private void drawAnnotations() {
         if (annotations.isEmpty()) {
@@ -112,8 +206,8 @@ public abstract class Figure {
     private void set_defaults() {
         annotationFont = new Font("SANSSERIF", Font.PLAIN, fullWidth >= fullHeight ? fullHeight / 50 :
                 fullWidth / 50);
-        xAxesLabelFont = yAxesLabelFont = new Font("SANSSERIF", Font.PLAIN, fullWidth >= fullHeight ? fullHeight / 40 :
-                fullWidth / 40);
+        xAxisLabelFont = yAxisLabelFont = new Font("SANSSERIF", Font.PLAIN, fullWidth >= fullHeight ? fullHeight / 26 :
+                fullWidth / 26);
         titleFont = new Font("SANSSERIF", Font.PLAIN, fullWidth >= fullHeight ? fullHeight / 20 : fullWidth / 20);
     }
     // ------------------------------------------------- constructors -------------------------------------------------
@@ -218,52 +312,52 @@ public abstract class Figure {
         figureBackground = color;
         return true;
     }
-    public boolean setXAxesLabelFont(Font font) {
+    public boolean setXAxisLabelFont(Font font) {
         if (font == null) {
             return false;
         }
-        xAxesLabelFont = font;
+        xAxisLabelFont = font;
         return true;
     }
-    public final Font getXAxesLabelFont() {
-        return xAxesLabelFont;
+    public final Font getXAxisLabelFont() {
+        return xAxisLabelFont;
     }
-    public final boolean setXAxesLabelFontSize(int size) {
+    public final boolean setXAxisLabelFontSize(int size) {
         if (size <= 0) {
             return false;
         }
-        xAxesLabelFont = new Font("sansserif", Font.PLAIN, size);
+        xAxisLabelFont = new Font("sansserif", Font.PLAIN, size);
         return true;
     }
-    public final boolean setXAxesLabelColor(Color color) {
+    public final boolean setXAxisLabelColor(Color color) {
         if (color == null) {
             return false;
         }
-        xAxesLabelColour = color;
+        xAxisLabelColour = color;
         return true;
     }
-    public boolean setYAxesLabelFont(Font font) {
+    public boolean setYAxisLabelFont(Font font) {
         if (font == null) {
             return false;
         }
-        yAxesLabelFont = font;
+        yAxisLabelFont = font;
         return true;
     }
-    public final Font getYAxesLabelFont() {
-        return yAxesLabelFont;
+    public final Font getYAxisLabelFont() {
+        return yAxisLabelFont;
     }
-    public final boolean setYAxesLabelFontSize(int size) {
+    public final boolean setYAxisLabelFontSize(int size) {
         if (size <= 0) {
             return false;
         }
-        yAxesLabelFont = new Font("sansserif", Font.PLAIN, size);
+        yAxisLabelFont = new Font("sansserif", Font.PLAIN, size);
         return true;
     }
-    public final boolean setYAxesLabelColor(Color color) {
+    public final boolean setYAxisLabelColor(Color color) {
         if (color == null) {
             return false;
         }
-        yAxesLabelColour = color;
+        yAxisLabelColour = color;
         return true;
     }
     public final void setTitleFontSize(int size) {
@@ -285,6 +379,46 @@ public abstract class Figure {
         }
         maxTitleWidth = pixels;
         titleWidthSet = true;
+        return true;
+    }
+    public final boolean setMaxXAxisLabelWidth(int pixels) {
+        if (pixels <= 0 || pixels > this.fullWidth) {
+            return false;
+        }
+        maxXAxisLabelWidth = pixels;
+        xAxisLabelWidthSet = true;
+        return true;
+    }
+    public final boolean setMaxYAxisLabelWidth(int pixels) { // still called "width", even though it's really height,
+        if (pixels <= 0 || pixels > this.fullHeight) {       // since this will determine the Label object's width
+            return false;
+        }
+        maxYAxisLabelWidth = pixels;
+        yAxisLabelWidthSet = true;
+        return true;
+    }
+    public final boolean setTitleBackgroundColor(Color col) {
+        if (col == null) {
+            return false;
+        }
+        titleBgColour = col;
+        titleBgColourSet = true;
+        return true;
+    }
+    public final boolean setXAxisLabelBackgroundColor(Color col) {
+        if (col == null) {
+            return false;
+        }
+        xAxisLabelBgColour = col;
+        xAxisLabelBgColourSet = true;
+        return true;
+    }
+    public final boolean setYAxisLabelBackgroundColor(Color col) {
+        if (col == null) {
+            return false;
+        }
+        yAxisLabelBgColour = col;
+        yAxisLabelBgColourSet = true;
         return true;
     }
     public final void setAnnotationFontSize(int size) {
@@ -328,7 +462,7 @@ public abstract class Figure {
     }
     // public abstract boolean setFigureDimensions(int newWidth, int newHeight);
     // ------------------------------------------------ text additions ------------------------------------------------
-    public final boolean addTitle(String text, Font f) {
+    public final boolean addTitle(String text, Font f, Color col) {
         if (text == null) {
             return false;
         }
@@ -336,10 +470,86 @@ public abstract class Figure {
         if (f != null) {
             titleFont = f;
         }
+        if (col != null) {
+            titleColour = col;
+        }
         return true;
     }
+    public final boolean addTitle(String text, Font f) {
+        return addTitle(text, f, null);
+    }
     public final boolean addTitle(String text) {
-        return addTitle(text, null);
+        return addTitle(text, null, null);
+    }
+    public final boolean addXAxisLabel(String text, Font f, Color col) {
+        if (text == null) {
+            return false;
+        }
+        xAxisLabelText = text;
+        if (f != null) {
+            xAxisLabelFont = f;
+        }
+        if (col != null) {
+            xAxisLabelColour = col;
+        }
+        return true;
+    }
+    public final boolean addXAxisLabel(String text, Font f) {
+        return addXAxisLabel(text, f, null);
+    }
+    public final boolean addXAxisLabel(String text) {
+        return addXAxisLabel(text, null, null);
+    }
+    public final boolean addYAxisLabel(String text, Font f, Color col) {
+        if (text == null) {
+            return false;
+        }
+        yAxisLabelText = text;
+        if (f != null) {
+            yAxisLabelFont = f;
+        }
+        if (col != null) {
+            yAxisLabelColour = col;
+        }
+        return true;
+    }
+    public final boolean addYAxisLabel(String text, Font f) {
+        return addYAxisLabel(text, f, null);
+    }
+    public final boolean addYAxisLabel(String text) {
+        return addYAxisLabel(text, null, null);
+    }
+    public final void moveTitleUp(int pixels) {
+        titleOffset += pixels;
+        if (titleOffset < 0) {
+            titleOffset = 0;
+        }
+    }
+    public final void moveXAxisLabelDown(int pixels) {
+        xAxisLabelOffset += pixels;
+        if (xAxisLabelOffset < 0) {
+            xAxisLabelOffset = 0;
+        }
+    }
+    public final void moveYAxisLabelLeft(int pixels) {
+        yAxisLabelOffset += pixels;
+        if (yAxisLabelOffset < 0) {
+            yAxisLabelOffset = 0;
+        }
+    }
+    public final void centerTitleVertically() {
+        centerTitle = true;
+    }
+    public final void centerXAxisLabelVertically() {
+        centerXAxisLabel = true;
+    }
+    public final void centerYAxisLabelHorizontally() {
+        centerYAxisLabel = true;
+    }
+    public final void centerAll() {
+        centerTitle = true;
+        centerXAxisLabel = true;
+        centerYAxisLabel = true;
     }
     public abstract boolean addPlotPadding(int padding);
     public final boolean addAnnotationNow(String text, int x_pos, int y_pos, Color color) { // always single-line
@@ -394,7 +604,7 @@ public abstract class Figure {
         return true;
     }
     // -----------------------------------------------------------------------------------------------------------------
-    public final synchronized void generateFigure() throws CharacterDoesNotFitException {
+    public final synchronized void generateFigure() throws CharacterDoesNotFitException, OutOfImageBoundsException {
         if (cleared) {
             createImage();
         }
@@ -404,10 +614,14 @@ public abstract class Figure {
         }
         drawAnnotations();
         drawLabels();
+        setPlotRect();
         drawTitle();
+        drawXAxisLabel();
+        drawYAxisLabel();
         generated = true;
     }
-    public final synchronized void write(boolean freeMemory) throws IOException, CharacterDoesNotFitException {
+    public final synchronized void write(boolean freeMemory) throws IOException, CharacterDoesNotFitException,
+            OutOfImageBoundsException {
         if (cleared) {
             generateFigure();
         }

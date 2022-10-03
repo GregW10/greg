@@ -12,8 +12,8 @@ public final class PlotLabel <T extends Number> extends Label {
     T yPos;
     T w;
     public PlotLabel(String text, Font font, Color bgColor, Color txtColor, T xPosition, T yPosition, T width,
-                     double rotationInRadians, int textJustification) {
-        super(text, font, textJustification);
+                     double rotationInRadians, int textJustification, boolean pushLongWordToNextLine) {
+        super(text, font, textJustification, pushLongWordToNextLine);
         super.backgroundColor = bgColor;
         super.textColor = txtColor;
         super.rotation = rotationInRadians;

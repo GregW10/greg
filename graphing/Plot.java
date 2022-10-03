@@ -20,8 +20,6 @@ import java.awt.font.GlyphVector;
 import java.awt.Rectangle;
 import javax.swing.JFrame; // for displaying the Figure without writing it to a file
 import javax.swing.JPanel;
-import javax.swing.JLabel;
-import javax.swing.ImageIcon;
 import java.awt.event.WindowAdapter;
 import greg.misc.Pair;
 import greg.misc.Trio;
@@ -50,6 +48,7 @@ public class Plot <T extends Number> extends Figure {
     private int origin_y;
     private int end_x;
     private int end_y;
+    private int gridlineThickness;
     private BigDecimal plotmin_x;
     private BigDecimal plotmin_y;
     private BigDecimal plotmax_x;
@@ -65,11 +64,23 @@ public class Plot <T extends Number> extends Figure {
     private Color xTickColour = Color.black;
     private Color yTickColour = Color.black;
     private Color plotBackground = null;
+    private Color gridlineColour = new Color(220, 220, 220);
+    private boolean xMinLimitSet = false;
+    private boolean xMaxLimitSet = false;
+    private boolean yMinLimitSet = false;
+    private boolean yMaxLimitSet = false;
     private boolean xTickThicknessSet = false;
     private boolean yTickThicknessSet = false;
-    boolean secondaryAxes = false;
-    boolean secondaryAxesThicknessSet = false;
-    boolean created = false;
+    private boolean secondaryAxes = false;
+    private boolean secondaryAxesThicknessSet = false;
+    private boolean gridlines = false;
+    private boolean gridlineThicknessSet = false;
+    private boolean firstXGridlinePopped = false;
+    private boolean firstYGridlinePopped = false;
+    private boolean lastXGridlinePopped = false;
+    private boolean lastYGridlinePopped = false;
+    private boolean somethingPopped = false;
+    private boolean created = false;
     private boolean generated = false;
     private boolean isIntegral;
     private boolean isBigD;
@@ -104,6 +115,33 @@ public class Plot <T extends Number> extends Figure {
     }
     private void drawLabels() {
         for (final Label l : labels) {
+            if (l instanceof PlotLabel<? extends Number> pLabel) {
+                BigDecimal xPosition;
+                BigDecimal yPosition;
+                BigDecimal w;
+                if (pLabel.xPos instanceof BigDecimal) {
+                    xPosition = (BigDecimal) pLabel.xPos;
+                    yPosition = (BigDecimal) pLabel.yPos;
+                    w = (BigDecimal) pLabel.w;
+                }
+                else if (pLabel.xPos instanceof Float || pLabel.xPos instanceof Double) {
+                    xPosition = BigDecimal.valueOf(pLabel.xPos.doubleValue());
+                    yPosition = BigDecimal.valueOf(pLabel.yPos.doubleValue());
+                    w = BigDecimal.valueOf(pLabel.w.doubleValue());
+                }
+                else {
+                    xPosition = BigDecimal.valueOf(pLabel.xPos.longValue());
+                    yPosition = BigDecimal.valueOf(pLabel.yPos.longValue());
+                    w = BigDecimal.valueOf(pLabel.w.longValue());
+                }
+                BigDecimal XRatio = getXRatio();
+                BigDecimal YRatio = getYRatio();
+                l.rect.x = getXPixelPos(xPosition, XRatio);
+                l.rect.y = -getYPixelPos(yPosition, YRatio) + height;
+                l.rect.width = w.multiply(BigDecimal.valueOf(Math.sqrt(Math.pow(Math.cos(l.rotation)*XRatio.
+                        doubleValue(), 2d) + Math.pow(Math.sin(l.rotation)*YRatio.doubleValue(), 2d)))).intValue();
+                l.unlock();
+            }
             if (!l.calculated) {
                 l.calculate(this.image_graphics, null);
             }
@@ -132,12 +170,13 @@ public class Plot <T extends Number> extends Figure {
                 (axes_thickness - 1) / 2, (axes_thickness - 1) / 2);
         if (secondaryAxes) {
             int realThickness = secondaryAxesThicknessSet ? axes_thickness2 : axes_thickness;
+            int onePixelCorrection = realThickness == 1 ? 1 : 0;
             image_graphics.setStroke(new BasicStroke(realThickness, BasicStroke.CAP_BUTT, BasicStroke.JOIN_BEVEL));
             image_graphics.setPaint(axes_colour2);
-            image_graphics.drawLine(origin_x + axes_thickness/2 + 1, end_y - realThickness/2 - 1 + diff.second, end_x + diff.first,
-                    end_y - realThickness/2 - 1 + diff.second);
+            image_graphics.drawLine(origin_x + axes_thickness/2 + 1, end_y - realThickness/2 - 1 + diff.second, end_x +
+                    diff.first - onePixelCorrection, end_y - realThickness/2 - 1 + diff.second);
             image_graphics.drawLine(end_x - realThickness/2 - 1 + diff.first, origin_y + axes_thickness/2 + 1, end_x -
-                    realThickness/2 - 1 + diff.first, end_y + diff.second);
+                    realThickness/2 - 1 + diff.first, end_y + diff.second - onePixelCorrection);
             // image_graphics.drawLine(origin_x, end_y - 1, end_x, end_y - 1);
             // image_graphics.drawLine(end_x - 1, origin_y, end_x - 1, end_y);
             // image_graphics.fillRect(origin_x - (axes_thickness - 1)/2, end_y, (axes_thickness - 1) / 2,
@@ -484,7 +523,52 @@ public class Plot <T extends Number> extends Figure {
             p_y.second = new Pair<>(x2, -y + height);
             yTickPixelPositions.add(p_y);
         }
-        return new Pair<>(diff_x < 0 ? 0 : diff_x, diff_y < 0 ? 0 : diff_y);
+        if (diff_x < 0) {
+            diff_x = 0;
+        }
+        if (diff_y < 0) {
+            diff_y = 0;
+        }
+        if (gridlines) {
+            if (!gridlineThicknessSet) {
+                gridlineThickness = xtick_thickness >= ytick_thickness ? ytick_thickness : xtick_thickness;
+            }
+            if (gridlineThickness > axes_thickness) { // if not, ugly
+                gridlineThickness = axes_thickness;
+            }
+            int secondAxesOffset = (secondaryAxes ? axes_thickness2 : 0);
+            int y_offset = origin_y + axes_thickness/2 + 1;
+            int upto_y = end_y - secondAxesOffset + diff_y;
+            int x_offset = origin_x + axes_thickness/2 + 1;
+            int upto_x = end_x - secondAxesOffset + diff_x;
+            image_graphics.setStroke(new BasicStroke(gridlineThickness, BasicStroke.CAP_BUTT, BasicStroke.JOIN_BEVEL));
+            image_graphics.setPaint(gridlineColour);
+            if (!somethingPopped) {
+                for (final Pair<BigDecimal, Pair<Integer, Integer>> pair_x : xTickPixelPositions) {
+                    image_graphics.drawLine(pair_x.second.first, y_offset, pair_x.second.first, upto_y);
+                }
+                for (final Pair<BigDecimal, Pair<Integer, Integer>> pair_y : yTickPixelPositions) {
+                    y = height - pair_y.second.second;
+                    image_graphics.drawLine(x_offset, y, upto_x, y);
+                }
+            }
+            else {
+                Pair<BigDecimal, Pair<Integer, Integer>> pair_x;
+                int xStartCount = firstXGridlinePopped ? 1 : 0;
+                int xEndCount = lastXGridlinePopped ? xTickPixelPositions.size() - 1 : xTickPixelPositions.size();
+                for (; xStartCount < xEndCount; ++xStartCount) {
+                    pair_x = xTickPixelPositions.get(xStartCount);
+                    image_graphics.drawLine(pair_x.second.first, y_offset, pair_x.second.first, upto_y);
+                }
+                int yStartCount = firstYGridlinePopped ? 1 : 0;
+                int yEndCount = lastYGridlinePopped ? yTickPixelPositions.size() - 1 : yTickPixelPositions.size();
+                for (; yStartCount < yEndCount; ++yStartCount) {
+                    y = height - yTickPixelPositions.get(yStartCount).second.second;
+                    image_graphics.drawLine(x_offset, y, upto_x, y);
+                }
+            }
+        }
+        return new Pair<>(diff_x, diff_y);
     }
     private int get_max_points() {
         int retval = 0;
@@ -649,17 +733,25 @@ public class Plot <T extends Number> extends Figure {
             if (y_val.compareTo(max_y) > 0) {
                 max_y = y_val;
             }
-            plot.add(new Pair<BigDecimal, BigDecimal>(x_val, y_val));
+            plot.add(new Pair<>(x_val, y_val));
         }
         plots.add(plot);
         BigDecimal x_range = max_x.subtract(min_x);
         BigDecimal y_range = max_y.subtract(min_y);
         BigDecimal xpad = x_range.divide(BigDecimal.TEN, x_range.scale() + 1, RoundingMode.HALF_UP);
         BigDecimal ypad = y_range.divide(BigDecimal.TEN, y_range.scale() + 1, RoundingMode.HALF_UP);
-        plotmin_x = min_x.subtract(xpad);
-        plotmax_x = max_x.add(xpad);
-        plotmin_y = min_y.subtract(ypad);
-        plotmax_y = max_y.add(ypad);
+        if (!xMinLimitSet) { // if limits are set, the only way to forcibly undo them is by setting tick locations
+            plotmin_x = min_x.subtract(xpad);
+        }
+        if (!xMaxLimitSet) {
+            plotmax_x = max_x.add(xpad);
+        }
+        if (!yMinLimitSet) {
+            plotmin_y = min_y.subtract(ypad);
+        }
+        if (!yMaxLimitSet) {
+            plotmax_y = max_y.add(ypad);
+        }
         if (!wasEmpty) {
             if (!prevMinX.equals(min_x) || !prevMaxX.equals(max_x)) {
                 outdated_xtick_pos = true;
@@ -725,9 +817,17 @@ public class Plot <T extends Number> extends Figure {
     }
     @Override
     public final boolean addPlotPadding(int pixels) {
-        super.plotPadding += pixels; // not setting the padding, but adding to it every time this method is called
-        if (super.plotPadding < 0) {
-            super.plotPadding = 0; // must never be less than zero: Figure title must not overlap with Plot image
+        super.titleOffset += pixels; // prefer to avoid the 3 func. calls to super.move...()
+        super.xAxisLabelOffset += pixels;
+        super.yAxisLabelOffset += pixels;
+        if (super.titleOffset < 0) {
+            super.titleOffset = 0;
+        }
+        if (super.xAxisLabelOffset < 0) {
+            super.xAxisLabelOffset = 0;
+        }
+        if (super.yAxisLabelOffset < 0) {
+            super.yAxisLabelOffset = 0;
         }
         return true;
     }
@@ -902,7 +1002,7 @@ public class Plot <T extends Number> extends Figure {
     //     return true;
     // }
     public final boolean setXTickThickness(int thickness) {
-        if (thickness > axes_thickness) {
+        if (thickness > axes_thickness || thickness <= 0) {
             return false;
         }
         if (thickness % 2 == 0) {
@@ -913,7 +1013,7 @@ public class Plot <T extends Number> extends Figure {
         return true;
     }
     public final boolean setYTickThickness(int thickness) {
-        if (thickness > axes_thickness) {
+        if (thickness > axes_thickness || thickness <= 0) {
             return false;
         }
         if (thickness % 2 == 0) {
@@ -935,6 +1035,21 @@ public class Plot <T extends Number> extends Figure {
             return false;
         }
         ytick_length = length;
+        return true;
+    }
+    public final boolean setGridlineThickness(int thickness_in_pixels) {
+        if (thickness_in_pixels <= 0) {
+            return false;
+        }
+        gridlineThickness = thickness_in_pixels % 2 == 0 ? thickness_in_pixels + 1 : thickness_in_pixels;
+        gridlineThicknessSet = true;
+        return true;
+    }
+    public final boolean setGridlineColor(Color col) {
+        if (col == null) {
+            return false;
+        }
+        gridlineColour = col;
         return true;
     }
     public final boolean setXTickPositions(final List<T> positions) { // all ticks must always be visible, so the
@@ -966,7 +1081,7 @@ public class Plot <T extends Number> extends Figure {
         expand_xlims();
         outdated_xtick_pos = false;
         outdated_ytick_pos = false;
-        xTickTPositions = positions;
+        xTickTPositions.addAll(positions);
         return true;
     }
     public final boolean setXTickPositions(final T [] positions) {
@@ -990,7 +1105,7 @@ public class Plot <T extends Number> extends Figure {
         }
         else if (isBigD) {
             for (final T elem : positions) {
-                xtick_positions.add((BigDecimal) elem);
+                ytick_positions.add((BigDecimal) elem);
             }
         }
         else {
@@ -1001,7 +1116,7 @@ public class Plot <T extends Number> extends Figure {
         expand_ylims();
         outdated_xtick_pos = false;
         outdated_ytick_pos = false;
-        yTickTPositions = positions;
+        yTickTPositions.addAll(positions);
         return true;
     }
     public final boolean setYTickPositions(final T [] positions) {
@@ -1029,10 +1144,18 @@ public class Plot <T extends Number> extends Figure {
         if (!xtick_positions.isEmpty()) {
             if (getMin(xtick_positions).get().compareTo(tempMin) > 0) {
                 plotmin_x = tempMin;
+                xMinLimitSet = true;
             }
             if (getMax(xtick_positions).get().compareTo(tempMax) < 0) {
                 plotmax_x = tempMax;
+                xMaxLimitSet = true;
             }
+        }
+        else {
+            plotmin_x = tempMin;
+            plotmax_x = tempMax;
+            xMinLimitSet = true;
+            xMaxLimitSet = true;
         }
         return true;
     }
@@ -1058,10 +1181,18 @@ public class Plot <T extends Number> extends Figure {
         if (!ytick_positions.isEmpty()) {
             if (getMin(ytick_positions).get().compareTo(tempMin) > 0) {
                 plotmin_y = tempMin;
+                yMinLimitSet = true;
             }
             if (getMax(ytick_positions).get().compareTo(tempMax) < 0) {
                 plotmax_y = tempMax;
+                yMaxLimitSet = true;
             }
+        }
+        else {
+            plotmin_y = tempMin;
+            plotmax_y = tempMax;
+            yMinLimitSet = true;
+            yMaxLimitSet = true;
         }
         return true;
     }
@@ -1074,11 +1205,26 @@ public class Plot <T extends Number> extends Figure {
         yExpSet = true;
     }
     // ------------------------------------------ end of getters and setters ------------------------------------------
+    public final boolean drawLine(int xPos1, int yPos1, int xPos2, int yPos2, int thickness, Color col) {
+        if (thickness <= 0) {
+            return false;
+        }
+        java.awt.Stroke currentStroke = image_graphics.getStroke();
+        Color currentColor = image_graphics.getColor();
+        image_graphics.setStroke(new BasicStroke(thickness, BasicStroke.CAP_BUTT, BasicStroke.JOIN_BEVEL));
+        if (col != null) {
+            image_graphics.setPaint(col);
+        }
+        image_graphics.drawLine(xPos1, yPos1, xPos2, yPos2);
+        image_graphics.setStroke(currentStroke);
+        image_graphics.setPaint(currentColor);
+        return true;
+    }
     public final void addSecondaryAxes() {
         secondaryAxes = true;
     }
     public final boolean addSecondaryAxes(int thickness_in_pixels) {
-        if (thickness_in_pixels > height/20 || thickness_in_pixels > width/20) {
+        if (thickness_in_pixels > height/20 || thickness_in_pixels > width/20 || thickness_in_pixels <= 0) {
             return false;
         }
         axes_thickness2 = thickness_in_pixels % 2 == 0 ? thickness_in_pixels + 1 : thickness_in_pixels;
@@ -1095,6 +1241,25 @@ public class Plot <T extends Number> extends Figure {
     }
     public final void removeSecondaryAxes() {
         secondaryAxes = false;
+    }
+    public final void addGridlines() {
+        gridlines = true;
+    }
+    public final void popFirstXGridline() {
+        firstXGridlinePopped = true;
+        somethingPopped = true;
+    }
+    public final void popFirstYGridline() {
+        firstYGridlinePopped = true;
+        somethingPopped = true;
+    }
+    public final void popLastXGridline() {
+        lastXGridlinePopped = true;
+        somethingPopped = true;
+    }
+    public final void popLastYGridline() {
+        lastYGridlinePopped = true;
+        somethingPopped = true;
     }
     public boolean addAnnotation(String text, T x_pos, T y_pos, Color color) {
         if (text == null || color == null || x_pos == null || y_pos == null || text.isEmpty()) {
@@ -1121,37 +1286,11 @@ public class Plot <T extends Number> extends Figure {
         if (label == null) {
             return false;
         }
-        if (label instanceof PlotLabel<? extends Number> pLabel) {
-            BigDecimal xPosition;
-            BigDecimal yPosition;
-            BigDecimal w;
-            if (pLabel.xPos instanceof BigDecimal) {
-                xPosition = (BigDecimal) pLabel.xPos;
-                yPosition = (BigDecimal) pLabel.yPos;
-                w = (BigDecimal) pLabel.w;
-            }
-            else if (pLabel.xPos instanceof Float || pLabel.xPos instanceof Double) {
-                xPosition = BigDecimal.valueOf(pLabel.xPos.doubleValue());
-                yPosition = BigDecimal.valueOf(pLabel.yPos.doubleValue());
-                w = BigDecimal.valueOf(pLabel.w.doubleValue());
-            }
-            else {
-                xPosition = BigDecimal.valueOf(pLabel.xPos.longValue());
-                yPosition = BigDecimal.valueOf(pLabel.yPos.longValue());
-                w = BigDecimal.valueOf(pLabel.w.longValue());
-            }
-            BigDecimal XRatio = getXRatio();
-            BigDecimal YRatio = getYRatio();
-            label.rect.x = getXPixelPos(xPosition, XRatio);
-            label.rect.y = -getYPixelPos(yPosition, YRatio) + height;
-            label.rect.width = w.multiply(BigDecimal.valueOf(Math.sqrt(Math.pow(Math.cos(label.rotation)*XRatio.doubleValue(), 2d) +
-                    Math.pow(Math.sin(label.rotation)*YRatio.doubleValue(), 2d)))).intValue();
-            label.unlock();
-        }
         labels.add(label);
         return true;
     }
-    public final synchronized boolean generatePlot(boolean freePlot) {
+    public final synchronized boolean generatePlot(boolean freePlot) throws CharacterDoesNotFitException,
+            OutOfImageBoundsException {
         if (plots.isEmpty()) {
             return false;
         }
@@ -1183,9 +1322,11 @@ public class Plot <T extends Number> extends Figure {
         return true;
     } // the below method generates the Plot image, copies it to the Figure image, and writes the Figure image to file
     public final synchronized boolean generatePlotAndWrite(boolean free_images) throws IOException,
-            CharacterDoesNotFitException {
-        if (!generatePlot(free_images)) {
-            return false;
+            CharacterDoesNotFitException, OutOfImageBoundsException {
+        if (!generated) {
+            if (!generatePlot(free_images)) {
+                return false;
+            }
         }
         super.write(free_images);
         return true;
